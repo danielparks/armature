@@ -2,8 +2,7 @@ module Gofer
   class Puppetfile
     attr_reader :results
 
-    def initialize(cache)
-      @cache = cache
+    def initialize()
       @results = {}
     end
 
@@ -21,13 +20,10 @@ module Gofer
         :ref => "master",
       })
 
-      repo =  @cache.get_repo(options[:git])
-      ref_path = @cache.get_ref_path(repo, options[:ref])
-
-      @results[name] = ref_path
+      @results[name] = options
     end
 
-    def forge
+    def forge(*arguments)
       ### error?
     end
   end

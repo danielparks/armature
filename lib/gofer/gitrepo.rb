@@ -1,16 +1,18 @@
 module Gofer
   class GitRepo
     attr_reader :name
+    attr_reader :url
 
-    def initialize(name, git_dir)
+    def initialize(url, name, git_dir)
+      @url = url
       @name = name
       @git_dir = git_dir
       @fetched = false
     end
 
     def freshen
-      if @fetched
-        self.git "fetch"
+      if ! @fetched
+        git "fetch"
         @fetched = true
         true
       else
@@ -27,55 +29,54 @@ module Gofer
 
       command = [ "git",
         "--work-tree=" + options[:work_dir],
-        "--git-dir=#{@git_dir}/",
+        "--git-dir=" + @git_dir,
       ] + arguments
 
       ### handle errors? missing git?
+      puts Gofer::Run.command_to_string(*command)
       Gofer::Run.command(*command)
     end
 
+    # Get the type of a ref (:branch, :tag, or :sha)
     def ref_type(ref)
-      output = self.git "show-ref", ref
-      output.split("\n").each do |line|
-        symbol = line.split(" ", 2)[1]
-        if symbol.starts_with?("refs/remotes/origin/")
-          return :branch
-        elsif symbol.starts_with?("refs/tags/")
-          return :tag
-        elsif symbol.starts_with?("refs/heads/")
-          # Local branch
-          return :branch
+      if ref_sha("refs/heads/#{ref}")
+        :branch
+      elsif ref_sha("refs/tags/#{ref}")
+        :tag
+      elsif ref_sha(ref)
+        if sha == ref
+          :sha
         else
-          ### unknown. log? error?
-          raise "Unknown ref type: #{ref}"
+          raise "Unknown ref type for '#{ref}'"
         end
-      end
-
-      raise "Could not find ref: #{ref}"
-    rescue CommandFailureError
-      ### Not 100% certain this is correct
-      self.git "show-ref", "--verify", ref
-      return :sha
-    end
-
-    # Get a ref's sha, failing if it doesn't exist
-    def ref_sha!(ref)
-      self.git "rev-parse", ref
-    rescue CommandFailureError
-      raise IndexError.new("no such ref '#{ref}'")
-    end
-
-    # Get a ref's sha, fetching once if it doesn't exist
-    def ref_sha(ref)
-      sha = self.ref_sha!(ref)
-    rescue IndexError
-      if self.freshen
-        # git fetch was actually called
-        sha = self.ref_sha!(ref)
       else
-        # fetch had already been run recently
-        raise
+        raise IndexError.new("no such ref '#{ref}'")
       end
+    end
+
+    # Get the sha for a ref, or nil if it doesn't exist
+    def ref_sha(ref)
+      git("rev-parse", ref).chomp
+    rescue Gofer::Run::CommandFailureError
+      nil
+    rescue => e
+      puts e.class
+      raise
+    end
+
+    # Get the sha for a ref, fetching once if it doesn't exist
+    def find_ref_sha(ref)
+      sha = ref_sha(ref)
+      if sha.nil? and freshen()
+        # git fetch was actually called
+        sha = ref_sha(ref)
+      end
+
+      if sha.nil?
+        raise IndexError.new("no such ref '#{ref}'")
+      end
+
+      sha
     end
   end
 end

@@ -1,11 +1,13 @@
 require 'digest'
 require 'fileutils'
+require 'pathname'
 
 module Gofer
   class Cache
     ### FIXME garbage_collect not implemented
     def initialize(path)
       @path = path
+      @process_prefix = "#{Time.now.to_i}.#{Process.pid}"
       @sequence = 0
 
       %w{repo sha tag branch object tmp}.each do |subdir|
@@ -13,7 +15,7 @@ module Gofer
       end
     end
 
-    def get_repo(url)
+    def get_repo(url, options={})
       url_hash = self.class.hash_url(url)
       repo_path = "#{@path}/repo/#{url_hash}"
 
@@ -23,17 +25,40 @@ module Gofer
         Gofer::Run.command("git", "clone", "--quiet", "--mirror", url, repo_path)
       end
 
-      GitRepo.new(url_hash, repo_path)
+      GitRepo.new(url, url_hash, repo_path)
     end
 
-    def get_ref_path(repo, ref)
-      cached_ref(repo, ref) do |ref_path|
-        sha = repo.ref_sha(ref)
-        sha_path = self.get_sha_path(repo, sha)
-        if sha_path != ref_path
-          self.atomic_symlink(sha_path, ref_path)
+    def checkout(repo, ref, options={})
+      options = Gofer::Util.process_options(options, { :name=>nil })
+
+      # Check cache first
+      ["sha", "tag", "branch"].each do |type|
+        ref_path = "#{@path}/#{type}/#{repo.name}/#{ref}"
+        if Dir.exist? ref_path
+          return ref_path
         end
       end
+
+      # This will raise if the ref doesn't exist
+      sha = repo.find_ref_sha(ref)
+      if sha == ref
+        type = "sha"
+      else
+        type = repo.ref_type(ref)
+      end
+
+      repo_dir = "#{@path}/#{type}/#{repo.name}"
+      if ! Dir.exist? repo_dir
+        Dir.mkdir(repo_dir)
+      end
+
+      ref_path = "#{repo_dir}/#{ref}"
+      sha_path = checkout_sha(repo, sha, options[:name])
+      if sha_path != ref_path
+        atomic_symlink(sha_path, ref_path)
+      end
+
+      ref_path
     end
 
     def self.hash_url(url)
@@ -41,52 +66,62 @@ module Gofer
       Digest::MD5.hexdigest(url)
     end
 
+    # Creates a symlink atomically
+    #
+    # That is, if a symlink or file exists at new_path, then this will replace
+    # it with the newly created symlink atomically.
+    #
+    # Both target_path and new_path should be absolute or relative to the
+    # current working directory.
     def atomic_symlink(target_path, new_path)
-      temp_path = self.new_temp_path()
-      File.symlink(target_path, temp_path)
+      new_path.chomp!("/")
+      temp_path = new_temp_path()
+      relative_target_path = Pathname.new(target_path).relative_path_from(
+        Pathname.new(new_path).dirname)
+
+      File.symlink(relative_target_path, temp_path)
       File.rename(temp_path, new_path)
+    rescue => e
+      puts "Error in atomic_symlink('#{target_path}', '#{new_path}')"
+      raise
     end
 
   private
 
     def new_temp_path
       @sequence += 1
-      "#{@path}/tmp/#{Time.now.to_i}.#{Process.pid}.#{@sequence}"
+      "#{@path}/tmp/#{@process_prefix}.#{@sequence}"
     end
 
-    def new_object_path
+    def new_object_path(name=nil)
       @sequence += 1
-      "#{@path}/object/#{Time.now.to_i}.#{Process.pid}.#{@sequence}"
+      if name
+        name.tr!("^a-zA-Z0-9.:,_-", "_")
+        name = ".#{name}"
+      end
+
+      "#{@path}/object/#{@process_prefix}.#{@sequence}#{name}"
     end
 
-    ### FIXME better name
-    ### Check if a ref has been cached, otherwise yield the path to stick the object in
-    def cached_ref(repo, ref)
-      type = repo.ref_type(ref).to_s
-
-      repo_dir = "#{@path}/#{type}/#{repo.name}"
-      ref_path = "#{repo_dir}/#{ref}"
-      if Dir.exist? ref_path
-        return ref_path
+    # Assumes sha exists. Use checkout() if it might not.
+    def checkout_sha(repo, sha, name=nil)
+      repo_path = "#{@path}/sha/#{repo.name}"
+      sha_path = "#{repo_path}/#{sha}"
+      if Dir.exist? sha_path
+        return sha_path
       end
 
-      if Dir.exist? repo_dir
-        Dir.mkdir(repo_dir)
+      if ! Dir.exist? repo_path
+        Dir.mkdir(repo_path)
       end
 
-      yield ref_path
-      ref_path
-    end
+      object_path = new_object_path(name)
+      FileUtils.mkdir_p object_path
+      repo.git "reset", "--hard", sha, :work_dir=>object_path
 
-    # Assumes sha exists. Use get_ref_path if it might not.
-    def get_sha_path(repo, ref)
-      cached_ref(repo, ref) do |sha_path|
-        object_path = self.new_object_path()
-        FileUtils.mkdir_p object_path
-        repo.git "checkout", sha, :work_dir=>object_path
+      atomic_symlink(object_path, sha_path)
 
-        self.atomic_symlink(object_path, sha_path)
-      end
+      sha_path
     end
   end
 end
