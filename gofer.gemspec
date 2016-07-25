@@ -7,7 +7,7 @@ spec = Gem::Specification.new do |s|
   s.email = 'dp-gofer@oxidized.org'
   s.homepage = 'http://oxidized.org'
   s.platform = Gem::Platform::RUBY
-  s.summary = 'A replacement'
+  s.summary = 'Tool to deploy Puppet environments and manage modules'
   s.files = `git ls-files`.split("\n")
   s.require_paths << 'lib'
   s.has_rdoc = true
@@ -19,4 +19,5 @@ spec = Gem::Specification.new do |s|
   s.add_development_dependency('rdoc')
   s.add_development_dependency('aruba')
   s.add_runtime_dependency('gli','2.14.0')
+  s.add_runtime_dependency('logging','~> 2')
 end

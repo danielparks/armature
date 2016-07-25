@@ -27,10 +27,16 @@ module Gofer::Run
   end
 
   def command(*command)
+    logger = Logging.logger[self]
+
+    logger.debug(command_to_string(*command))
     out, status = Open3.capture2e(*command)
+    logger.debug(command_to_string(command.first) + ": #{status}")
+
     if ! status.success?
       raise CommandFailureError.new(status, command, out)
     end
+
     out
   end
 end

@@ -9,6 +9,7 @@ module Gofer
       @path = path
       @process_prefix = "#{Time.now.to_i}.#{Process.pid}"
       @sequence = 0
+      @logger = Logging.logger[self]
 
       %w{repo sha tag branch object tmp}.each do |subdir|
         FileUtils.mkdir_p "#{@path}/#{subdir}"
@@ -22,7 +23,9 @@ module Gofer
       if ! Dir.exist? repo_path
         ### FIXME can we use --bare?
         # Ignore output
+        @logger.info("Cloning '#{url}' for the first time")
         Gofer::Run.command("git", "clone", "--quiet", "--mirror", url, repo_path)
+        @logger.debug("Done cloning '#{url}'")
       end
 
       GitRepo.new(url, url_hash, repo_path)
@@ -75,14 +78,17 @@ module Gofer
     # current working directory.
     def atomic_symlink(target_path, new_path)
       new_path.chomp!("/")
+
+      @logger.debug("#{new_path} -> #{target_path}")
+
       temp_path = new_temp_path()
       relative_target_path = Pathname.new(target_path).relative_path_from(
         Pathname.new(new_path).dirname)
 
       File.symlink(relative_target_path, temp_path)
       File.rename(temp_path, new_path)
-    rescue => e
-      puts "Error in atomic_symlink('#{target_path}', '#{new_path}')"
+    rescue
+      @logger.error("Error in atomic_symlink('#{target_path}', '#{new_path}')")
       raise
     end
 
@@ -93,6 +99,7 @@ module Gofer
       "#{@path}/tmp/#{@process_prefix}.#{@sequence}"
     end
 
+    ### This should probably distribute objects among directories
     def new_object_path(name=nil)
       @sequence += 1
       if name
@@ -117,8 +124,10 @@ module Gofer
 
       object_path = new_object_path(name)
       FileUtils.mkdir_p object_path
-      repo.git "reset", "--hard", sha, :work_dir=>object_path
 
+      @logger.info(
+        "Checking out '#{sha}' from '#{repo.url}' into '#{object_path}'")
+      repo.git "reset", "--hard", sha, :work_dir=>object_path
       atomic_symlink(object_path, sha_path)
 
       sha_path

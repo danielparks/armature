@@ -1,12 +1,16 @@
 #!/usr/bin/env ruby
+
 require 'gli'
 require 'gofer'
+require 'logging'
 
 include GLI::App
 
 program_desc 'deploy Puppet environments and manage modules'
-
 version Gofer::VERSION
+
+@logger = Logging.logger['gofer']
+Logging.logger.root.level = :warn
 
 subcommand_option_handling :normal
 arguments :strict
@@ -14,12 +18,15 @@ arguments :strict
 desc 'Show INFO level output'
 switch [:v,:verbose]
 
+desc 'Show DEBUG level output'
+switch [:d,:debug]
+
 desc 'Path to gofer cache'
 default_value '~/.gofer/cache'
 arg_name 'DIR'
 flag [:C,:cache]
 
-desc 'Describe deploy here'
+desc 'Deploy a repo into environments based on branches'
 arg 'GIT_URL'
 arg 'branch', :optional=>true, :multiple=>true
 command :deploy do |c|
@@ -38,6 +45,9 @@ command :deploy do |c|
       arguments = ['master']
     end
 
+    @logger.debug "Using code directory '#{options[:code]}'"
+    @logger.info "Deploying repo from '#{url}' with refs #{arguments}"
+
     repo = cache.get_repo(url)
     environments = Gofer::Environments.new(options[:code], cache)
     arguments.each do |ref|
@@ -46,12 +56,17 @@ command :deploy do |c|
   end
 end
 
-pre do |global,command,options,args|
-  # Pre logic here
-  # Return true to proceed; false to abort and not call the
-  # chosen command
-  # Use skips_pre before a command to skip this block
-  # on that command only
+pre do |global_options, command, options, arguments|
+  Logging.logger.root.add_appenders Logging.appenders.stdout
+
+  Logging.logger.root.level = :info if global_options[:verbose]
+  Logging.logger.root.level = :debug if global_options[:debug]
+
+  # Don't log all the git commands
+  Logging.logger["Gofer::Run"].level = :info if global_options[:debug]
+
+  @logger.debug "Using cache directory '#{global_options[:cache]}'"
+
   true
 end
 

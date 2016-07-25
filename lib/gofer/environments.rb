@@ -6,9 +6,12 @@ module Gofer
     def initialize(path, cache)
       @cache = cache
       @path = path
+      @logger = Logging.logger[self]
     end
 
     def checkout_ref(repo, ref)
+      logger = Logging.logger["#{self.class.name} #{ref}"]
+      logger.debug "Deploying #{ref} from '#{repo.url}'"
       # This will add and update a modules dir in any repo, even if the repo
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
       ref_path = @cache.checkout(repo, ref)
@@ -18,16 +21,20 @@ module Gofer
       ### symlink targets?
       puppetfile_path = "#{ref_path}/Puppetfile"
       if File.exist?(puppetfile_path)
+        logger.debug "Found Puppetfile"
         puppetfile = Gofer::Puppetfile.new()
         puppetfile.include(puppetfile_path)
         module_refs = puppetfile.results
+        logger.debug "Loaded Puppetfile with #{module_refs.length} modules"
       else
+        logger.debug "No Puppetfile"
         module_refs = {}
       end
 
       self.apply(ref_path, module_refs)
 
       @cache.atomic_symlink(ref_path, "#{@path}/#{ref}")
+      logger.debug "Done deploying #{ref} from '#{repo.url}'"
     end
 
     # Apply the results of the Puppetfile to a ref (e.g. an environment)
@@ -42,7 +49,6 @@ module Gofer
         repo =  @cache.get_repo(info[:git])
         ref_path = @cache.checkout(repo, info[:ref], :name=>"#{name}.#{info[:ref]}")
 
-        puts "#{modules_path}/#{name} -> #{ref_path}"
         @cache.atomic_symlink(ref_path, "#{modules_path}/#{name}")
       end
 

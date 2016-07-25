@@ -33,7 +33,6 @@ module Gofer
       ] + arguments
 
       ### handle errors? missing git?
-      puts Gofer::Run.command_to_string(*command)
       Gofer::Run.command(*command)
     end
 
