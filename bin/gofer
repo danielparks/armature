@@ -1,0 +1,57 @@
+#!/usr/bin/env ruby
+require 'gli'
+require 'gofer'
+
+include GLI::App
+
+program_desc 'deploy Puppet environments and manage modules'
+
+version Gofer::VERSION
+
+subcommand_option_handling :normal
+arguments :strict
+
+desc 'Show INFO level output'
+switch [:v,:verbose]
+
+desc 'Path to gofer cache'
+default_value '~/.gofer/cache'
+arg_name 'DIR'
+flag [:C,:cache]
+
+desc 'Describe deploy here'
+arg_name 'URL'
+command :deploy do |c|
+  c.desc 'Path to the code directory'
+  c.default_value '/opt/puppetlabs/puppet...'
+  c.flag [:c,:code]
+
+  c.action do |global_options, options, arguments|
+    puts global_options[:cache]
+    puts options[:code]
+    puts arguments
+  end
+end
+
+pre do |global,command,options,args|
+  # Pre logic here
+  # Return true to proceed; false to abort and not call the
+  # chosen command
+  # Use skips_pre before a command to skip this block
+  # on that command only
+  true
+end
+
+post do |global,command,options,args|
+  # Post logic here
+  # Use skips_post before a command to skip this
+  # block on that command only
+end
+
+on_error do |exception|
+  # Error logic here
+  # return false to skip default error handling
+  true
+end
+
+exit run(ARGV)
