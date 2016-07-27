@@ -17,7 +17,7 @@ module Gofer
     end
 
     def get_repo(url, options={})
-      url_hash = self.class.hash_url(url)
+      url_hash = self.class.fs_sanitize_url(url)
       repo_path = "#{@path}/repo/#{url_hash}"
 
       if ! Dir.exist? repo_path
@@ -64,9 +64,8 @@ module Gofer
       ref_path
     end
 
-    def self.hash_url(url)
-      ### something more human readable would be nice
-      Digest::MD5.hexdigest(url)
+    def self.fs_sanitize_url(url)
+      url.sub(/^\./, "%2e").gsub(" ", "%20").tr("/", " ")
     end
 
     # Creates a symlink atomically
