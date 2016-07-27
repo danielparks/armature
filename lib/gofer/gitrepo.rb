@@ -23,14 +23,17 @@ module Gofer
     def git(*arguments)
       # This accepts a hash of options as the last argument
       options = if arguments.last.is_a? Hash then arguments.pop else {} end
-      options = Gofer::Util.process_options(options, {}, {
-        :work_dir => ".",
-      })
+      options = Gofer::Util.process_options(options, { :work_dir => nil }, {})
 
-      command = [ "git",
-        "--work-tree=" + options[:work_dir],
-        "--git-dir=" + @git_dir,
-      ] + arguments
+      if options[:work_dir]
+        work_dir_arguments = [ "--work-tree=" + options[:work_dir] ]
+      else
+        work_dir_arguments = []
+      end
+
+      command = [ "git", "--git-dir=" + @git_dir ] \
+        + work_dir_arguments \
+        + arguments
 
       ### handle errors? missing git?
       Gofer::Run.command(*command)
