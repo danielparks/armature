@@ -81,11 +81,20 @@ module Gofer
 
       @logger.debug("#{new_path} -> #{target_path}")
 
-      temp_path = new_temp_path()
-      relative_target_path = Pathname.new(target_path).relative_path_from(
-        Pathname.new(new_path).dirname)
+      real_new_dir = Pathname.new(new_path).dirname.realpath
+      target_path = Pathname.new(target_path)
 
-      File.symlink(relative_target_path, temp_path)
+      if target_path.relative?
+        # real_new_dir is absolute, so target_path must be as well for
+        # relative_path_from() to work.
+        target_path = Pathname.new(".").realpath + target_path
+      end
+
+      # Get target path relative to new_path
+      target_path_from_new = target_path.relative_path_from(real_new_dir)
+
+      temp_path = new_temp_path()
+      File.symlink(target_path_from_new, temp_path)
       File.rename(temp_path, new_path)
     rescue
       @logger.error("Error in atomic_symlink('#{target_path}', '#{new_path}')")
