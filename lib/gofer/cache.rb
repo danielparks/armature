@@ -111,8 +111,7 @@ module Gofer
     def new_object_path(name=nil)
       @sequence += 1
       if name
-        name.tr!("^a-zA-Z0-9.:,_-", "_")
-        name = ".#{name}"
+        name = "." + name.tr("/", " ")
       end
 
       "#{@path}/object/#{@process_prefix}.#{@sequence}#{name}"
