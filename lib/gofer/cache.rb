@@ -1,6 +1,7 @@
-require 'digest'
 require 'fileutils'
+require 'find'
 require 'pathname'
+require 'set'
 
 module Gofer
   class Cache
@@ -98,6 +99,49 @@ module Gofer
     rescue
       @logger.error("Error in atomic_symlink('#{target_path}', '#{new_path}')")
       raise
+    end
+
+    def self.get_link_target(link)
+      Pathname.new(File.join(File.dirname(link), File.readlink(link))).cleanpath
+    end
+
+    def garbage_collect(code_path)
+      all_paths = Set.new
+      referenced_paths = Set.new
+
+      Dir.glob("#{code_path}/*") do |path|
+        raise "Expected a symlink: #{path}" unless File.symlink?(path)
+        referenced_paths << self.class.get_link_target(path)
+      end
+
+      Dir.glob("#{@path}/sha/*/*/modules/*") do |path|
+        raise "Expected a symlink: #{path}" unless File.symlink?(path)
+        referenced_paths << self.class.get_link_target(path)
+      end
+
+      Dir.glob("#{@path}/{sha,tag,branch}/*/*") do |path|
+        raise "Expected a symlink: #{path}" unless File.symlink?(path)
+        referenced_paths << self.class.get_link_target(path)
+        all_paths << path
+      end
+
+      all_paths.merge(Dir.glob("#{@path}/object/*"))
+
+      # Repos aren't symlinked to, so they can't be garbage collected that way
+      #all_paths.merge(Dir.glob("#{@path}/repo/*"))
+
+      all_paths.each do |path|
+        puts "all: #{path}"
+      end
+      referenced_paths.each do |path|
+        puts "ref: #{path}"
+      end
+
+      loose_paths = all_paths - referenced_paths
+
+      @logger.info("Found #{all_paths.size} paths")
+      @logger.info("Found #{referenced_paths.size} references")
+      @logger.info("Found #{loose_paths.size} unreferenced paths")
     end
 
   private
