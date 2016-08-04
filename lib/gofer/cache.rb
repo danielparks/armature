@@ -1,11 +1,9 @@
 require 'fileutils'
-require 'find'
 require 'pathname'
 require 'set'
 
 module Gofer
   class Cache
-    ### FIXME garbage_collect not implemented
     def initialize(path)
       @path = path
       @process_prefix = "#{Time.now.to_i}.#{Process.pid}"
@@ -101,47 +99,88 @@ module Gofer
       raise
     end
 
-    def self.get_link_target(link)
-      Pathname.new(File.join(File.dirname(link), File.readlink(link))).cleanpath
-    end
-
     def garbage_collect(code_path)
-      all_paths = Set.new
+      ### FIXME lock
+
+      def follow_path(path, referenced, visited=[])
+        if not File.symlink? path
+          raise "Expected a symlink: #{path}"
+        end
+
+        target = Pathname.new(File.join(
+          File.dirname(path), File.readlink(path))).cleanpath.to_s
+
+        if referenced.include? target
+          # Short cut. We've already seen this path.
+          return nil
+        end
+
+        visited << target
+
+        if File.symlink? target
+          if visited.size() >= 6
+            raise "Symlink path more than 6 links deep: #{visited}"
+          end
+
+          return follow_path(target, referenced, visited)
+        else
+          ### Assume this is an object
+
+          # Delay updating referenced until now so that we don't interfere with
+          # loop detection. (Adding links as we find them would cause loops to
+          # short circuit, resulting in a return of nil.)
+          referenced.merge(visited)
+          return target
+        end
+      end
+
       referenced_paths = Set.new
+      env_objects = Set.new
 
-      Dir.glob("#{code_path}/*") do |path|
-        raise "Expected a symlink: #{path}" unless File.symlink?(path)
-        referenced_paths << self.class.get_link_target(path)
+      Dir.glob("#{code_path}/*") do |env_path|
+        object_path = follow_path(env_path, referenced_paths)
+        if object_path
+          # We could get a nil if two branches evaluate to the same sha.
+          env_objects << object_path
+
+          Dir.glob("#{object_path}/modules/*") do |module_path|
+            follow_path(module_path, referenced_paths)
+          end
+        end
       end
 
-      Dir.glob("#{@path}/sha/*/*/modules/*") do |path|
-        raise "Expected a symlink: #{path}" unless File.symlink?(path)
-        referenced_paths << self.class.get_link_target(path)
+      all_references = Set.new(Dir.glob("#{@path}/{sha,tag,branch}/*/*"))
+      difference = all_references - referenced_paths
+      @logger.info("Deleting #{difference.size} of #{all_references.size} references")
+      difference.each do |path|
+        File.delete(path)
       end
 
-      Dir.glob("#{@path}/{sha,tag,branch}/*/*") do |path|
-        raise "Expected a symlink: #{path}" unless File.symlink?(path)
-        referenced_paths << self.class.get_link_target(path)
-        all_paths << path
+      # Objects might take a while to delete, so move them into a
+      # temporary directory and then delete them outside the lock.
+      trash_path = new_temp_path()
+      Dir.mkdir(trash_path)
+
+      begin
+        trash_sequence = 1
+
+        all_objects = Set.new(Dir.glob("#{@path}/object/*"))
+        difference = all_objects - referenced_paths
+        @logger.info("Trashing #{difference.size} of #{all_objects.size} objects")
+        difference.each do |path|
+          File.rename(path, "#{trash_path}/#{trash_sequence}")
+          trash_sequence += 1
+        end
+
+        ### GC repos
+        ### remove excess modules directories
+
+      ensure
+        ### release lock
+        @logger.info("Deleting trashed objects")
+        FileUtils.remove_entry(trash_path)
+        @logger.debug("Finished deleting trashed objects")
       end
-
-      all_paths.merge(Dir.glob("#{@path}/object/*"))
-
-      # Repos aren't symlinked to, so they can't be garbage collected that way
-      #all_paths.merge(Dir.glob("#{@path}/repo/*"))
-
-      all_paths.each do |path|
-        puts "all: #{path}"
-      end
-      referenced_paths.each do |path|
-        puts "ref: #{path}"
-      end
-
-      loose_paths = all_paths - referenced_paths
-
-      @logger.info("Found #{all_paths.size} paths")
-      @logger.info("Found #{referenced_paths.size} references")
-      @logger.info("Found #{loose_paths.size} unreferenced paths")
     end
 
   private

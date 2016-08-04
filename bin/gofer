@@ -56,6 +56,7 @@ command :deploy do |c|
   end
 end
 
+desc 'Remove unused objects from cache'
 command :gc do |c|
   c.desc 'Path to the code directory'
   c.default_value '/opt/puppetlabs/puppet...'
