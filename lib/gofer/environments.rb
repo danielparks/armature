@@ -14,7 +14,7 @@ module Gofer
       logger.info "Deploying from '#{repo.url}'"
       # This will add and update a modules dir in any repo, even if the repo
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
-      ref_path = @cache.checkout(repo, ref)
+      ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
 
       ### Perhaps this should check for state (completeness) of modules/ and
       ### then skip reading the Puppetfile and just update branches based on

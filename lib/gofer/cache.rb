@@ -36,13 +36,19 @@ module Gofer
     end
 
     def checkout(repo, ref, options={})
-      options = Gofer::Util.process_options(options, { :name=>nil })
+      options = Gofer::Util.process_options(options,
+        { :name=>nil }, { :refresh=>false })
 
-      # Check cache first
-      ["sha", "tag", "branch"].each do |type|
-        ref_path = "#{@path}/#{type}/#{repo.name}/#{ref}"
-        if Dir.exist? ref_path
-          return ref_path
+      if options[:refresh]
+        # Don't check the cache; refresh it from source.
+        repo.freshen()
+      else
+        # Check cache first
+        ["sha", "tag", "branch"].each do |type|
+          ref_path = "#{@path}/#{type}/#{repo.name}/#{ref}"
+          if Dir.exist? ref_path
+            return ref_path
+          end
         end
       end
 
