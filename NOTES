@@ -1,8 +1,4 @@
-Need a garbage collector
- - probably just use a global lock
- - mv objects into trash directory and delete them in other thread (or after GC lock released)
-
-Maybe don't check branch for update every run. Have a separate run that checks branches for updates (gofer branch-update)
+Need locking
 
 Splitting it up into prepare and activate steps means that branches and tags can't be updated as we go along. That also means:
   - That information has to be tracked in memory, so that two references to a new branch don't result in two objects.
