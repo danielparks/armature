@@ -11,7 +11,7 @@ module Gofer
 
     def checkout_ref(repo, ref)
       logger = Logging.logger["#{self.class.name} #{ref}"]
-      logger.debug "Deploying #{ref} from '#{repo.url}'"
+      logger.info "Deploying from '#{repo.url}'"
       # This will add and update a modules dir in any repo, even if the repo
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
       ref_path = @cache.checkout(repo, ref)

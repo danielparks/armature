@@ -46,7 +46,6 @@ command :deploy do |c|
     end
 
     @logger.debug "Using code directory '#{options[:code]}'"
-    @logger.info "Deploying repo from '#{url}' with refs #{arguments}"
 
     repo = cache.get_repo(url)
     environments = Gofer::Environments.new(options[:code], cache)

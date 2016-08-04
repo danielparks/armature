@@ -6,6 +6,7 @@ module Gofer
   class Cache
     def initialize(path)
       @path = path
+      @repos = {}
       @process_prefix = "#{Time.now.to_i}.#{Process.pid}"
       @sequence = 0
       @logger = Logging.logger[self]
@@ -15,10 +16,10 @@ module Gofer
       end
     end
 
-    def get_repo(url, options={})
+    def get_repo(url)
       url_hash = self.class.fs_sanitize_url(url)
-      repo_path = "#{@path}/repo/#{url_hash}"
 
+      repo_path = "#{@path}/repo/#{url_hash}"
       if ! Dir.exist? repo_path
         ### FIXME can we use --bare?
         # Ignore output
@@ -27,7 +28,11 @@ module Gofer
         @logger.debug("Done cloning '#{url}'")
       end
 
-      GitRepo.new(url, url_hash, repo_path)
+      get_repo_by_name(url_hash)
+    end
+
+    def get_repo_by_name(url_hash)
+      @repos[url_hash] ||= GitRepo.new("#{@path}/repo/#{url_hash}", url_hash)
     end
 
     def checkout(repo, ref, options={})

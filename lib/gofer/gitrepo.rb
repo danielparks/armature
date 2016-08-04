@@ -1,17 +1,21 @@
 module Gofer
   class GitRepo
     attr_reader :name
-    attr_reader :url
 
-    def initialize(url, name, git_dir)
-      @url = url
-      @name = name
+    def initialize(git_dir, name)
       @git_dir = git_dir
+      @name = name
       @fetched = false
+      @logger = Logging.logger[self]
+    end
+
+    def url
+      @url ||= git("config", "--get", "remote.origin.url").chomp()
     end
 
     def freshen
       if ! @fetched
+        @logger.info("Fetching from #{url}")
         git "fetch"
         @fetched = true
         true
