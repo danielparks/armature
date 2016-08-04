@@ -110,6 +110,16 @@ module Gofer
       raise
     end
 
+    def update_branches()
+      Dir.glob("#{@path}/branch/*/*") do |path|
+        branch = File.basename(path)
+        repo = get_repo_by_name(File.basename(File.dirname(path)))
+        @logger.info("Updating #{branch} branch from #{repo.url}")
+
+        checkout(repo, branch, :refresh=>true)
+      end
+    end
+
     def garbage_collect(code_path)
       ### FIXME lock
 

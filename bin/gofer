@@ -71,6 +71,18 @@ command :gc do |c|
   end
 end
 
+desc 'Update branches to latest revisions'
+command :update do |c|
+  c.action do |global_options, options, arguments|
+    if ! arguments.empty?
+      raise "Arguments may not be specified"
+    end
+
+    cache = Gofer::Cache.new(global_options[:cache])
+    cache.update_branches()
+  end
+end
+
 pre do |global_options, command, options, arguments|
   Logging.logger.root.add_appenders Logging.appenders.stdout
 
