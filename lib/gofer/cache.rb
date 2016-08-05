@@ -17,9 +17,9 @@ module Gofer
     end
 
     def get_repo(url)
-      url_hash = self.class.fs_sanitize_url(url)
+      safe_url = self.class.fs_sanitize_url(url)
 
-      repo_path = "#{@path}/repo/#{url_hash}"
+      repo_path = "#{@path}/repo/#{safe_url}"
       if ! Dir.exist? repo_path
         ### FIXME can we use --bare?
         @logger.info("Cloning '#{url}' for the first time")
@@ -32,16 +32,18 @@ module Gofer
         end
       end
 
-      get_repo_by_name(url_hash)
+      get_repo_by_name(safe_url)
     end
 
-    def get_repo_by_name(url_hash)
-      @repos[url_hash] ||= GitRepo.new("#{@path}/repo/#{url_hash}", url_hash)
+    def get_repo_by_name(safe_url)
+      @repos[safe_url] ||= GitRepo.new("#{@path}/repo/#{safe_url}", safe_url)
     end
 
     def checkout(repo, ref, options={})
       options = Gofer::Util.process_options(options,
         { :name=>nil }, { :refresh=>false })
+
+      safe_ref = self.class.fs_sanitize_ref(ref)
 
       if options[:refresh]
         # Don't check the cache; refresh it from source.
@@ -49,7 +51,7 @@ module Gofer
       else
         # Check cache first
         ["sha", "tag", "branch"].each do |type|
-          ref_path = "#{@path}/#{type}/#{repo.name}/#{ref}"
+          ref_path = "#{@path}/#{type}/#{repo.name}/#{safe_ref}"
           if Dir.exist? ref_path
             return ref_path
           end
@@ -69,7 +71,7 @@ module Gofer
         Dir.mkdir(repo_dir)
       end
 
-      ref_path = "#{repo_dir}/#{ref}"
+      ref_path = "#{repo_dir}/#{safe_ref}"
       sha_path = checkout_sha(repo, sha, options[:name])
       if sha_path != ref_path
         atomic_symlink(sha_path, ref_path)
@@ -80,6 +82,18 @@ module Gofer
 
     def self.fs_sanitize_url(url)
       url.sub(/^\./, "%2e").gsub(" ", "%20").tr("/", " ")
+    end
+
+    def self.fs_sanitize_ref(ref)
+      if ref.start_with? "."
+        raise "ref may not start with '.': '#{ref}'"
+      end
+
+      if ref.include? "/"
+        raise "ref may not contain '/': '#{ref}'"
+      end
+
+      return ref
     end
 
     # Creates a symlink atomically
@@ -245,8 +259,10 @@ module Gofer
 
     # Assumes sha exists. Use checkout() if it might not.
     def checkout_sha(repo, sha, name=nil)
+      safe_sha = self.class.fs_sanitize_ref(sha)
+
       repo_path = "#{@path}/sha/#{repo.name}"
-      sha_path = "#{repo_path}/#{sha}"
+      sha_path = "#{repo_path}/#{safe_sha}"
       if Dir.exist? sha_path
         return sha_path
       end

@@ -45,13 +45,16 @@ module Gofer
 
     # Apply the results of the Puppetfile to a ref (e.g. an environment)
     def update_modules(target_path, module_refs)
-      ### validate names and refs for FS safety
       modules_path = "#{target_path}/modules"
       if ! Dir.exist? modules_path
         Dir.mkdir(modules_path)
       end
 
       module_refs.each do |name, info|
+        if name !~ /^[a-z][a-z0-9_]*$/
+          raise "Invalid module name: '#{name}'"
+        end
+
         repo =  @cache.get_repo(info[:git])
         ref_path = @cache.checkout(repo, info[:ref], :name=>"#{name}.#{info[:ref]}")
 
