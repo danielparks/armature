@@ -3,10 +3,17 @@ require 'json'
 module Gofer::Util
   extend self
 
-  ### FIXME better docs
-  # check that options only have keys in optional, and use the values as defaults
+  # Validate options passed to a function
   #
-  #     options = process_options(options, { :output => nil }, { :work_dir => "." })
+  # options - the options that were passed to the function
+  # optional - options that are not required as a hash of keys and defaults
+  # required - options that are required as a hash of keys and defaults
+  #
+  # Returns the options hash with defaults applied.
+  #
+  # ~~~ ruby
+  # options = process_options(options, { :output => nil }, { :work_dir => "." })
+  # ~~~
   def process_options(options, optional, required={})
     options.each_key do |key|
       if ! optional.has_key? key and ! required.has_key? key
@@ -25,6 +32,8 @@ module Gofer::Util
   end
 
   # Lock a path with a .name.lock file
+  #
+  # For example, `lock("foo/bar")` creates a `foo/.bar.lock` lock file.
   def lock(path, mode, message=nil)
     lock_path = File.dirname(path) + "/." + File.basename(path) + ".lock"
     lock_file lock_path, mode, message do |lock|

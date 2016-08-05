@@ -1,3 +1,9 @@
 Splitting it up into prepare and activate steps means that branches and tags can't be updated as we go along. That also means:
   - That information has to be tracked in memory, so that two references to a new branch don't result in two objects.
   - Garbage collection must not collect those objects between the prepare and activate steps, even though a process likely won't be running to hold a lock on them.
+
+Need to be able to get environments from branches.
+
+Need to deal with deleted refs.
+
+It might make sense to run our own webhook, rather than relying on a wrapper like Jenkins.

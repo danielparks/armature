@@ -16,6 +16,9 @@ module Gofer
       end
     end
 
+    # Get GitRepo object for a local clone of a remote repo at a URL
+    #
+    # This will clone the repo if it doesn't already exist.
     def get_repo(url)
       safe_url = self.class.fs_sanitize_url(url)
 
@@ -35,10 +38,12 @@ module Gofer
       get_repo_by_name(safe_url)
     end
 
+    # Get a GitRepo object for an existing local repo by its santized URL
     def get_repo_by_name(safe_url)
       @repos[safe_url] ||= GitRepo.new("#{@path}/repo/#{safe_url}", safe_url)
     end
 
+    # Check out a ref from a repo and return the path
     def checkout(repo, ref, options={})
       options = Gofer::Util.process_options(options,
         { :name=>nil }, { :refresh=>false })
@@ -163,7 +168,7 @@ module Gofer
 
           return follow_path(target, referenced, visited)
         else
-          ### Assume this is an object
+          # Assume this is an object
 
           # Delay updating referenced until now so that we don't interfere with
           # loop detection. (Adding links as we find them would cause loops to
@@ -216,7 +221,7 @@ module Gofer
           trash_sequence += 1
         end
 
-        ### GC repos
+        ### remove excess repos
         ### remove excess modules directories
       end
     ensure
@@ -247,7 +252,6 @@ module Gofer
       "#{@path}/tmp/#{@process_prefix}.#{@sequence}"
     end
 
-    ### This should probably distribute objects among directories
     def new_object_path(name=nil)
       @sequence += 1
       if name

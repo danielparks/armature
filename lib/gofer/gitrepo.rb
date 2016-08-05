@@ -41,7 +41,6 @@ module Gofer
         + work_dir_arguments \
         + arguments
 
-      ### handle errors? missing git?
       Gofer::Run.command(*command)
     end
 

@@ -19,9 +19,6 @@ module Gofer
 
         ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
 
-        ### Perhaps this should check for state (completeness) of modules/ and
-        ### then skip reading the Puppetfile and just update branches based on
-        ### symlink targets?
         puppetfile_path = "#{ref_path}/Puppetfile"
         if File.exist?(puppetfile_path)
           logger.debug "Found Puppetfile"
