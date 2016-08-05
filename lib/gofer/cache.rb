@@ -22,10 +22,14 @@ module Gofer
       repo_path = "#{@path}/repo/#{url_hash}"
       if ! Dir.exist? repo_path
         ### FIXME can we use --bare?
-        # Ignore output
         @logger.info("Cloning '#{url}' for the first time")
-        Gofer::Run.command("git", "clone", "--quiet", "--mirror", url, repo_path)
-        @logger.debug("Done cloning '#{url}'")
+        Gofer::Util::lock repo_path, File::LOCK_EX, "clone" do
+          if ! Dir.exist? repo_path
+            # Ignore output
+            Gofer::Run.command("git", "clone", "--quiet", "--mirror", url, repo_path)
+            @logger.debug("Done cloning '#{url}'")
+          end
+        end
       end
 
       get_repo_by_name(url_hash)
@@ -121,7 +125,7 @@ module Gofer
     end
 
     def garbage_collect(code_path)
-      ### FIXME lock
+      trash_path = nil
 
       def follow_path(path, referenced, visited=[])
         if not File.symlink? path
@@ -155,39 +159,44 @@ module Gofer
         end
       end
 
-      referenced_paths = Set.new
-      env_objects = Set.new
+      lock File::LOCK_EX, "garbage_collect #{code_path}" do
+        # Remove all object locks
+        FileUtils.rm Dir.glob("#{@path}/*/.*.lock")
+        FileUtils.rm Dir.glob("#{@path}/*/*/.*.lock")
 
-      Dir.glob("#{code_path}/*") do |env_path|
-        object_path = follow_path(env_path, referenced_paths)
-        if object_path
-          # We could get a nil if two branches evaluate to the same sha.
-          env_objects << object_path
+        referenced_paths = Set.new
+        env_objects = Set.new
 
-          Dir.glob("#{object_path}/modules/*") do |module_path|
-            follow_path(module_path, referenced_paths)
+        Dir.glob("#{code_path}/*") do |env_path|
+          object_path = follow_path(env_path, referenced_paths)
+          if object_path
+            # We could get a nil if two branches evaluate to the same sha.
+            env_objects << object_path
+
+            Dir.glob("#{object_path}/modules/*") do |module_path|
+              follow_path(module_path, referenced_paths)
+            end
           end
         end
-      end
 
-      all_references = Set.new(Dir.glob("#{@path}/{sha,tag,branch}/*/*"))
-      difference = all_references - referenced_paths
-      @logger.info("Deleting #{difference.size} of #{all_references.size} references")
-      difference.each do |path|
-        File.delete(path)
-      end
+        all_references = Set.new(Dir.glob("#{@path}/{sha,tag,branch}/*/*"))
+        difference = all_references - referenced_paths
+        @logger.info(
+          "Deleting #{difference.size} of #{all_references.size} references")
+        difference.each do |path|
+          File.delete(path)
+        end
 
-      # Objects might take a while to delete, so move them into a
-      # temporary directory and then delete them outside the lock.
-      trash_path = new_temp_path()
-      Dir.mkdir(trash_path)
-
-      begin
+        # Objects might take a while to delete, so move them into a
+        # temporary directory and then delete them outside the lock.
+        trash_path = new_temp_path()
+        Dir.mkdir(trash_path)
         trash_sequence = 1
 
         all_objects = Set.new(Dir.glob("#{@path}/object/*"))
         difference = all_objects - referenced_paths
-        @logger.info("Trashing #{difference.size} of #{all_objects.size} objects")
+        @logger.info(
+          "Trashing #{difference.size} of #{all_objects.size} objects")
         difference.each do |path|
           File.rename(path, "#{trash_path}/#{trash_sequence}")
           trash_sequence += 1
@@ -195,13 +204,26 @@ module Gofer
 
         ### GC repos
         ### remove excess modules directories
-
-      ensure
-        ### release lock
+      end
+    ensure
+      if trash_path and File.exist? trash_path
         @logger.info("Deleting trashed objects")
         FileUtils.remove_entry(trash_path)
         @logger.debug("Finished deleting trashed objects")
       end
+    end
+
+    def lock(mode, message=nil)
+      if @lock_file
+        raise "Cannot re-lock cache"
+      end
+
+      Gofer::Util::lock_file "#{@path}/lock", mode, message do |lock_file|
+        @lock_file = lock_file
+        yield
+      end
+    ensure
+      @lock_file = nil
     end
 
   private
@@ -229,17 +251,22 @@ module Gofer
         return sha_path
       end
 
-      if ! Dir.exist? repo_path
-        Dir.mkdir(repo_path)
+      FileUtils.mkdir_p(repo_path)
+
+      Gofer::Util::lock sha_path, File::LOCK_EX, "checkout" do
+        # Another process may have created the object before we got the lock
+        if Dir.exist? sha_path
+          return sha_path
+        end
+
+        object_path = new_object_path(name)
+        FileUtils.mkdir_p object_path
+
+        @logger.info(
+          "Checking out '#{sha}' from '#{repo.url}' into '#{object_path}'")
+        repo.git "reset", "--hard", sha, :work_dir=>object_path
+        atomic_symlink(object_path, sha_path)
       end
-
-      object_path = new_object_path(name)
-      FileUtils.mkdir_p object_path
-
-      @logger.info(
-        "Checking out '#{sha}' from '#{repo.url}' into '#{object_path}'")
-      repo.git "reset", "--hard", sha, :work_dir=>object_path
-      atomic_symlink(object_path, sha_path)
 
       sha_path
     end

@@ -16,7 +16,9 @@ module Gofer
     def freshen
       if ! @fetched
         @logger.info("Fetching from #{url}")
-        git "fetch"
+        Gofer::Util::lock @git_dir, File::LOCK_EX, "fetch" do
+          git "fetch"
+        end
         @fetched = true
         true
       else

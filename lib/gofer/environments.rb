@@ -10,35 +10,41 @@ module Gofer
     end
 
     def checkout_ref(repo, ref)
-      logger = Logging.logger["#{self.class.name} #{ref}"]
-      logger.info "Deploying from '#{repo.url}'"
-      # This will add and update a modules dir in any repo, even if the repo
+      # This will add and update a modules dir in any repo, even if the repo is
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
-      ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
 
-      ### Perhaps this should check for state (completeness) of modules/ and
-      ### then skip reading the Puppetfile and just update branches based on
-      ### symlink targets?
-      puppetfile_path = "#{ref_path}/Puppetfile"
-      if File.exist?(puppetfile_path)
-        logger.debug "Found Puppetfile"
-        puppetfile = Gofer::Puppetfile.new()
-        puppetfile.include(puppetfile_path)
-        module_refs = puppetfile.results
-        logger.debug "Loaded Puppetfile with #{module_refs.length} modules"
-      else
-        logger.debug "No Puppetfile"
-        module_refs = {}
+      @cache.lock File::LOCK_SH do
+        logger = Logging.logger["#{self.class.name} #{ref}"]
+        logger.info "Deploying from '#{repo.url}'"
+
+        ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
+
+        ### Perhaps this should check for state (completeness) of modules/ and
+        ### then skip reading the Puppetfile and just update branches based on
+        ### symlink targets?
+        puppetfile_path = "#{ref_path}/Puppetfile"
+        if File.exist?(puppetfile_path)
+          logger.debug "Found Puppetfile"
+          puppetfile = Gofer::Puppetfile.new()
+          puppetfile.include(puppetfile_path)
+          module_refs = puppetfile.results
+          logger.debug "Loaded Puppetfile with #{module_refs.length} modules"
+        else
+          logger.debug "No Puppetfile"
+          module_refs = {}
+        end
+
+        update_modules(ref_path, module_refs)
+
+        @cache.atomic_symlink(ref_path, "#{@path}/#{ref}")
+        logger.debug "Done deploying from '#{repo.url}'"
       end
-
-      self.apply(ref_path, module_refs)
-
-      @cache.atomic_symlink(ref_path, "#{@path}/#{ref}")
-      logger.debug "Done deploying #{ref} from '#{repo.url}'"
     end
 
+  private
+
     # Apply the results of the Puppetfile to a ref (e.g. an environment)
-    def apply(target_path, module_refs)
+    def update_modules(target_path, module_refs)
       ### validate names and refs for FS safety
       modules_path = "#{target_path}/modules"
       if ! Dir.exist? modules_path
