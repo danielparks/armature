@@ -24,12 +24,11 @@ module Gofer
 
       repo_path = "#{@path}/repo/#{safe_url}"
       if ! Dir.exist? repo_path
-        ### FIXME can we use --bare?
         @logger.info("Cloning '#{url}' for the first time")
         Gofer::Util::lock repo_path, File::LOCK_EX, "clone" do
           if ! Dir.exist? repo_path
             # Ignore output
-            Gofer::Run.command("git", "clone", "--quiet", "--mirror", url, repo_path)
+            Gofer::Run.command("git", "clone", "--quiet", "--bare", url, repo_path)
             @logger.debug("Done cloning '#{url}'")
           end
         end
