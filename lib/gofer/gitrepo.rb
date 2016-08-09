@@ -63,12 +63,9 @@ module Gofer
 
     # Get the sha for a ref, or nil if it doesn't exist
     def ref_sha(ref)
-      git("rev-parse", ref).chomp
+      git("rev-parse", "--verify", "#{ref}^{commit}").chomp
     rescue Gofer::Run::CommandFailureError
       nil
-    rescue => e
-      puts e.class
-      raise
     end
 
     # Get the sha for a ref, fetching once if it doesn't exist
