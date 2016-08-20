@@ -1,4 +1,7 @@
 module Gofer
+  class RefError < StandardError
+  end
+
   class GitRepo
     attr_reader :name
 
@@ -57,7 +60,7 @@ module Gofer
           raise "Unknown ref type for '#{ref}'"
         end
       else
-        raise IndexError.new("no such ref '#{ref}'")
+        raise RefError.new("no such ref '#{ref}'")
       end
     end
 
@@ -77,7 +80,7 @@ module Gofer
       end
 
       if sha.nil?
-        raise IndexError.new("no such ref '#{ref}'")
+        raise RefError.new("no such ref '#{ref}'")
       end
 
       sha

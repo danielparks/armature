@@ -140,7 +140,14 @@ module Gofer
         repo = get_repo_by_name(File.basename(File.dirname(path)))
         @logger.info("Updating #{branch} branch from #{repo.url}")
 
-        checkout(repo, branch, :refresh=>true)
+        begin
+          checkout(repo, branch, :refresh=>true)
+        rescue RefError
+          # The ref no longer exists, so we can't update it. Leave the old
+          # checkout in place for safety; garbage collection will remove it if
+          # it's no longer used.
+          @logger.info("#{branch} branch missing in remote; leaving untouched")
+        end
       end
     end
 
