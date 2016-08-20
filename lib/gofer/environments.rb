@@ -17,7 +17,19 @@ module Gofer
         logger = Logging.logger["#{self.class.name} #{ref}"]
         logger.info "Deploying from '#{repo.url}'"
 
-        ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
+        environment_path = "#{@path}/#{ref}"
+
+        begin
+          ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
+        rescue RefError
+          if File.exist? environment_path
+            logger.info "Does not exist. Deleting environment."
+            File.delete(environment_path)
+          else
+            logger.info "Does not exist. No environment to delete."
+          end
+          return
+        end
 
         puppetfile_path = "#{ref_path}/Puppetfile"
         if File.exist?(puppetfile_path)
@@ -33,7 +45,7 @@ module Gofer
 
         update_modules(ref_path, module_refs)
 
-        @cache.atomic_symlink(ref_path, "#{@path}/#{ref}")
+        @cache.atomic_symlink(ref_path, environment_path)
         logger.debug "Done deploying from '#{repo.url}'"
       end
     end
