@@ -10,14 +10,9 @@ spec = Gem::Specification.new do |s|
   s.summary = 'Tool to deploy Puppet environments and manage modules'
   s.files = `git ls-files`.split("\n")
   s.require_paths << 'lib'
-  s.has_rdoc = true
-  s.extra_rdoc_files = ['README.rdoc','gofer.rdoc']
-  s.rdoc_options << '--title' << 'gofer' << '--main' << 'README.rdoc' << '-ri'
+  s.has_rdoc = false
   s.bindir = 'bin'
   s.executables << 'gofer'
-  s.add_development_dependency('rake')
-  s.add_development_dependency('rdoc')
-  s.add_development_dependency('aruba')
   s.add_runtime_dependency('gli','2.14.0')
   s.add_runtime_dependency('logging','~> 2')
 end
