@@ -11,9 +11,10 @@ module Gofer
     end
 
     def mod(name, options={})
-      # https://docs.puppet.com/puppet/latest/reference/lang_reserved.html#classes-and-defined-resource-types
-      if name !~ /^[a-z][a-z0-9_]*$/
-        raise "Invalid module name: '#{name}'"
+      if name =~ /^\./
+        raise "Module name may not start with period: '#{name}'"
+      elsif name =~ /\//
+        raise "Module name may not contain /: '#{name}'"
       end
 
       if @results[name]

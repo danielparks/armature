@@ -60,8 +60,10 @@ module Gofer
       end
 
       module_refs.each do |name, info|
-        if name !~ /^[a-z][a-z0-9_]*$/
-          raise "Invalid module name: '#{name}'"
+        if name =~ /^\./
+          raise "Module name may not start with period: '#{name}'"
+        elsif name =~ /\//
+          raise "Module name may not contain /: '#{name}'"
         end
 
         repo =  @cache.get_repo(info[:git])
