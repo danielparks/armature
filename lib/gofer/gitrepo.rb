@@ -47,6 +47,12 @@ module Gofer
       Gofer::Run.command(*command)
     end
 
+    def get_branches()
+      git("for-each-ref", "--format", "%(refname:strip=2)", "refs/heads")
+        .split(/[\r\n]/)
+        .reject { |line| line == "" }
+    end
+
     # Get the type of a ref (:branch, :tag, or :sha)
     def ref_type(ref)
       if ref_sha("refs/heads/#{ref}")

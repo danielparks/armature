@@ -290,7 +290,7 @@ module Gofer
         object_path = new_object_path(name)
         FileUtils.mkdir_p object_path
 
-        @logger.info(
+        @logger.debug(
           "Checking out '#{sha}' from '#{repo.url}' into '#{object_path}'")
         repo.git "reset", "--hard", sha, :work_dir=>object_path
         atomic_symlink(object_path, sha_path)

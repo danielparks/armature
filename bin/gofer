@@ -34,23 +34,32 @@ command :deploy do |c|
   c.default_value '/opt/puppetlabs/puppet...'
   c.flag [:c,:code]
 
-  c.action do |global_options, options, arguments|
-    if arguments.empty?
-      raise "Not enough arguments specified (should have been caught by GLI)"
-    end
+  c.desc 'Deploy all branches'
+  c.switch [:b,"all-branches"]
 
+  c.action do |global_options, options, arguments|
     cache = Gofer::Cache.new(global_options[:cache])
-    url = arguments.shift
-    if arguments.empty?
-      arguments = ['master']
-    end
+    repo = cache.get_repo(arguments.shift)
 
     @logger.debug "Using code directory '#{options[:code]}'"
-
-    repo = cache.get_repo(url)
     environments = Gofer::Environments.new(options[:code], cache)
-    arguments.each do |ref|
-      environments.checkout_ref(repo, ref)
+
+    if options["all-branches"]
+      if not arguments.empty?
+        raise "You may not specify branches to deploy with --all-branches"
+      end
+
+      repo.get_branches().each do |ref|
+        environments.checkout_ref(repo, ref)
+      end
+    else
+      if arguments.empty?
+        raise "You must specify at least one branch to deploy"
+      end
+
+      arguments.each do |ref|
+        environments.checkout_ref(repo, ref)
+      end
     end
   end
 end
