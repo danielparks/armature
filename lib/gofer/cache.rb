@@ -136,92 +136,21 @@ module Gofer
     end
 
     def garbage_collect(code_path)
-      trash_path = nil
-
-      def follow_path(path, referenced, visited=[])
-        if not File.symlink? path
-          raise "Expected a symlink: #{path}"
-        end
-
-        target = Pathname.new(File.join(
-          File.dirname(path), File.readlink(path))).cleanpath.to_s
-
-        if referenced.include? target
-          # Short cut. We've already seen this path.
-          return nil
-        end
-
-        visited << target
-
-        if File.symlink? target
-          if visited.size() >= 6
-            raise "Symlink path more than 6 links deep: #{visited}"
-          end
-
-          return follow_path(target, referenced, visited)
-        else
-          # Assume this is an object
-
-          # Delay updating referenced until now so that we don't interfere with
-          # loop detection. (Adding links as we find them would cause loops to
-          # short circuit, resulting in a return of nil.)
-          referenced.merge(visited)
-          return target
-        end
-      end
-
       lock File::LOCK_EX, "garbage_collect #{code_path}" do
         # Remove all object locks
         FileUtils.rm Dir.glob("#{@path}/*/.*.lock")
         FileUtils.rm Dir.glob("#{@path}/*/*/.*.lock")
 
-        referenced_paths = Set.new
-        env_objects = Set.new
+        referenced_paths = find_all_references(code_path)
 
-        Dir.glob("#{code_path}/*") do |env_path|
-          object_path = follow_path(env_path, referenced_paths)
-          if object_path
-            # We could get a nil if two branches evaluate to the same sha.
-            env_objects << object_path
-
-            Dir.glob("#{object_path}/modules/*") do |module_path|
-              follow_path(module_path, referenced_paths)
-            end
-          end
-        end
-
-        all_references = Set.new(Dir.glob("#{@path}/{sha,tag,branch}/*/*"))
-        difference = all_references - referenced_paths
-        @logger.info(
-          "Deleting #{difference.size} of #{all_references.size} references")
-        difference.each do |path|
-          File.delete(path)
-        end
-
-        # Objects might take a while to delete, so move them into a
-        # temporary directory and then delete them outside the lock.
-        trash_path = new_temp_path()
-        Dir.mkdir(trash_path)
-        trash_sequence = 1
-
-        all_objects = Set.new(Dir.glob("#{@path}/object/*"))
-        difference = all_objects - referenced_paths
-        @logger.info(
-          "Trashing #{difference.size} of #{all_objects.size} objects")
-        difference.each do |path|
-          File.rename(path, "#{trash_path}/#{trash_sequence}")
-          trash_sequence += 1
-        end
+        garbage_collect_refs(referenced_paths)
+        garbage_collect_objects(referenced_paths)
 
         ### remove excess repos
         ### remove excess modules directories
       end
     ensure
-      if trash_path and File.exist? trash_path
-        @logger.info("Deleting trashed objects")
-        FileUtils.remove_entry(trash_path)
-        @logger.debug("Finished deleting trashed objects")
-      end
+      empty_trash()
     end
 
     def lock(mode, message=nil)
@@ -286,6 +215,107 @@ module Gofer
       end
 
       sha_path
+    end
+
+    # Put a directory into a trash directory for off-line deletion
+    #
+    # Directories take a while to delete, so move them into a temporary
+    # directory and then delete them outside the lock.
+    def trash(path)
+      if not @trash_path or not File.directory? @trash_path
+        @trash_path = new_temp_path()
+        Dir.mkdir(@trash_path)
+        @trash_sequence = 1
+      end
+
+      File.rename(path, "#{@trash_path}/#{@trash_sequence}")
+      @trash_sequence += 1
+    end
+
+    def empty_trash
+      if @trash_path and File.exist? @trash_path
+        @logger.info("Deleting trashed objects")
+        FileUtils.remove_entry(@trash_path)
+        @logger.debug("Finished deleting trashed objects")
+      end
+
+      @trash_path = nil
+      @trash_sequence = nil
+    end
+
+    # Part of find_all_references
+    def follow_reference(path, referenced, visited=[])
+      if not File.symlink? path
+        raise "Expected a symlink: #{path}"
+      end
+
+      target = Pathname.new(File.join(
+        File.dirname(path), File.readlink(path))).cleanpath.to_s
+
+      if referenced.include? target
+        # Short cut. We've already seen this path.
+        return nil
+      end
+
+      visited << target
+
+      if File.symlink? target
+        if visited.size() >= 6
+          raise "Symlink path more than 6 links deep: #{visited}"
+        end
+
+        return follow_reference(target, referenced, visited)
+      else
+        # Assume this is an object
+
+        # Delay updating referenced until now so that we don't interfere with
+        # loop detection. (Adding links as we find them would cause loops to
+        # short circuit, resulting in a return of nil.)
+        referenced.merge(visited)
+        return target
+      end
+    end
+
+    def find_all_references(code_path)
+      referenced_paths = Set.new
+
+      Dir.glob("#{code_path}/*") do |env_path|
+        object_path = follow_reference(env_path, referenced_paths)
+        if object_path
+          # We could get a nil if two branches evaluate to the same sha.
+          referenced_paths << object_path
+
+          Dir.glob("#{object_path}/modules/*") do |module_path|
+            follow_reference(module_path, referenced_paths)
+          end
+        end
+      end
+
+      referenced_paths
+    end
+
+    def garbage_collect_refs(referenced_paths)
+      # Must be run from garbage_collect, since that handles the lock as well
+      # as emptying the trash
+      all_references = Set.new(Dir.glob("#{@path}/{sha,tag,branch}/*/*"))
+      difference = all_references - referenced_paths
+      @logger.info(
+        "Deleting #{difference.size} of #{all_references.size} references")
+      difference.each do |path|
+        File.delete(path)
+      end
+    end
+
+    def garbage_collect_objects(referenced_paths)
+      # Must be run from garbage_collect, since that handles the lock as well
+      # as emptying the trash
+      all_objects = Set.new(Dir.glob("#{@path}/object/*"))
+      difference = all_objects - referenced_paths
+      @logger.info(
+        "Trashing #{difference.size} of #{all_objects.size} objects")
+      difference.each do |path|
+        trash(path)
+      end
     end
   end
 end
