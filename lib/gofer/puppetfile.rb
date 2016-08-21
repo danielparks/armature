@@ -20,20 +20,10 @@ module Gofer
         raise "Module #{name} declared twice"
       end
 
-      options = Gofer::Util.process_options(options, {}, {
+      @results[name] = Gofer::Util.process_options(options, {}, {
         :git => nil,
         :ref => "master",
       })
-
-      if options[:ref].start_with? "."
-        raise "ref may not start with '.': '#{options[:ref]}'"
-      end
-
-      if options[:ref].include? "/"
-        raise "ref may not contain '/': '#{options[:ref]}'"
-      end
-
-      @results[name] = options
     end
 
     def forge(*arguments)

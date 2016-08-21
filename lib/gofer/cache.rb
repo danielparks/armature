@@ -20,7 +20,7 @@ module Gofer
     #
     # This will clone the repo if it doesn't already exist.
     def get_repo(url)
-      safe_url = self.class.fs_sanitize_url(url)
+      safe_url = fs_sanitize(url)
 
       repo_path = "#{@path}/repo/#{safe_url}"
       if ! Dir.exist? repo_path
@@ -49,7 +49,7 @@ module Gofer
       options = Gofer::Util.process_options(options,
         { :name=>nil }, { :refresh=>false })
 
-      safe_ref = self.class.fs_sanitize_ref(ref)
+      safe_ref = fs_sanitize(ref)
 
       if options[:refresh]
         # Don't check the cache; refresh it from source.
@@ -84,22 +84,6 @@ module Gofer
       end
 
       ref_path
-    end
-
-    def self.fs_sanitize_url(url)
-      url.sub(/^\./, "%2e").gsub(" ", "%20").tr("/", " ")
-    end
-
-    def self.fs_sanitize_ref(ref)
-      if ref.start_with? "."
-        raise "ref may not start with '.': '#{ref}'"
-      end
-
-      if ref.include? "/"
-        raise "ref may not contain '/': '#{ref}'"
-      end
-
-      return ref
     end
 
     # Creates a symlink atomically
@@ -269,9 +253,14 @@ module Gofer
       "#{@path}/object/#{@process_prefix}.#{@sequence}#{name}"
     end
 
+    def fs_sanitize(ref)
+      # Escape | and replace / with |. Also escape a leading .
+      ref.sub(/^\./, "\\.").gsub(/[\\|]/, '\\\0').gsub(/\//, '|')
+    end
+
     # Assumes sha exists. Use checkout() if it might not.
     def checkout_sha(repo, sha, name=nil)
-      safe_sha = self.class.fs_sanitize_ref(sha)
+      safe_sha = fs_sanitize(sha)
 
       repo_path = "#{@path}/sha/#{repo.name}"
       sha_path = "#{repo_path}/#{safe_sha}"
