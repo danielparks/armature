@@ -49,16 +49,25 @@ command :deploy do |c|
         raise "You may not specify branches to deploy with --all-branches"
       end
 
-      repo.get_branches().each do |ref|
-        environments.checkout_ref(repo, ref)
+      branches = repo.get_branches()
+      (environments.names() - branches).each do |name|
+        environments.remove(name)
       end
+
+      refs = branches
     else
       if arguments.empty?
         raise "You must specify at least one branch to deploy"
       end
 
-      arguments.each do |ref|
+      refs = arguments
+    end
+
+    refs.each do |ref|
+      begin
         environments.checkout_ref(repo, ref)
+      rescue => e
+        @logger.error("Error deploy ref '#{ref}' (skipping): #{e}")
       end
     end
   end

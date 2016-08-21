@@ -9,44 +9,53 @@ module Gofer
       @logger = Logging.logger[self]
     end
 
+    def names()
+      Dir["#{@path}/*"].map { |path| File.basename(path) }
+    end
+
+    def remove(name)
+      File.delete("#{@path}/#{name}")
+      @logger.debug "Environment '#{name}' deleted"
+    rescue Errno::ENOENT
+      @logger.debug "Environment '#{name}' does not exist"
+    end
+
     def checkout_ref(repo, ref)
       # This will add and update a modules dir in any repo, even if the repo is
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
 
-      @cache.lock File::LOCK_SH do
-        logger = Logging.logger["#{self.class.name} #{ref}"]
-        logger.info "Deploying from '#{repo.url}'"
+      # https://docs.puppet.com/puppet/latest/reference/lang_reserved.html#environments
+      if ref !~ /^[a-z0-9_]+$/
+        raise "Invalid environment name '#{ref}'"
+      end
 
-        environment_path = "#{@path}/#{ref}"
+      @cache.lock File::LOCK_SH do
+        @logger.info "Deploying ref '#{ref}' from '#{repo.url}'"
 
         begin
           ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
         rescue RefError
-          if File.exist? environment_path
-            logger.info "Does not exist. Deleting environment."
-            File.delete(environment_path)
-          else
-            logger.info "Does not exist. No environment to delete."
-          end
+          @logger.info "Ref '#{ref}' does not exist; ensuring environment is gone"
+          remove(ref)
           return
         end
 
         puppetfile_path = "#{ref_path}/Puppetfile"
         if File.exist?(puppetfile_path)
-          logger.debug "Found Puppetfile"
+          @logger.debug "Found Puppetfile in environment '#{ref}'"
           puppetfile = Gofer::Puppetfile.new()
           puppetfile.include(puppetfile_path)
           module_refs = puppetfile.results
-          logger.debug "Loaded Puppetfile with #{module_refs.length} modules"
+          @logger.debug "Loaded Puppetfile in environment '#{ref}' with #{module_refs.length} modules"
         else
-          logger.debug "No Puppetfile"
+          @logger.debug "No Puppetfile in environment '#{ref}'"
           module_refs = {}
         end
 
         update_modules(ref_path, module_refs)
 
-        @cache.atomic_symlink(ref_path, environment_path)
-        logger.debug "Done deploying from '#{repo.url}'"
+        @cache.atomic_symlink(ref_path, "#{@path}/#{ref}")
+        @logger.debug "Done deploying ref '#{ref}' from '#{repo.url}'"
       end
     end
 
