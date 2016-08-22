@@ -29,8 +29,9 @@ module Gofer
           if Dir.exist? repo_path
             @logger.info("Another process cloned '#{url}' while we were blocked")
           else
-            # Ignore output
-            Gofer::Run.command("git", "clone", "--quiet", "--bare", url, repo_path)
+            # Mirror keeps branches up to date. Ignore output.
+            Gofer::Run.command(
+              "git", "clone", "--quiet", "--mirror", url, repo_path)
             @logger.debug("Done cloning '#{url}'")
           end
         end

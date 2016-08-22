@@ -20,7 +20,8 @@ module Gofer
       if ! @fetched
         @logger.info("Fetching from #{url}")
         Gofer::Util::lock @git_dir, File::LOCK_EX, "fetch" do
-          git "fetch"
+          # Use --force to handle history changes
+          git "fetch", "--force"
         end
         @fetched = true
         true
@@ -66,7 +67,7 @@ module Gofer
           raise "Unknown ref type for '#{ref}'"
         end
       else
-        raise RefError.new("no such ref '#{ref}'")
+        raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
       end
     end
 
@@ -86,7 +87,7 @@ module Gofer
       end
 
       if sha.nil?
-        raise RefError.new("no such ref '#{ref}'")
+        raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
       end
 
       sha
