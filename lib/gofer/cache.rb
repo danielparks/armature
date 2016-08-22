@@ -146,8 +146,8 @@ module Gofer
 
         garbage_collect_refs(referenced_paths)
         garbage_collect_objects(referenced_paths)
+        garbage_collect_repos()
 
-        ### remove excess repos
         ### remove excess modules directories
       end
     ensure
@@ -318,6 +318,33 @@ module Gofer
       difference.each do |path|
         @logger.debug("Trashing #{path} (unused)")
         trash(path)
+      end
+    end
+
+    def garbage_collect_repos
+      # Must be run from garbage_collect, since that handles the lock as well
+      # as emptying the trash
+      all_repos = Dir.glob("#{@path}/repo/*")
+      all_repos = Set.new(all_repos.map { |path| File.basename(path) })
+      used_repos = Set.new()
+
+      referenced_repos = Dir.glob("#{@path}/{sha,tag,branch}/*")
+      referenced_repos.each do |path|
+        # No refs within the repo in use (for this ref type)
+        if Dir.glob("#{path}/*").empty?
+          @logger.debug("Trashing #{path} (empty)")
+          trash(path)
+        else
+          used_repos << File.basename(path)
+        end
+      end
+
+      difference = all_repos - used_repos
+      @logger.info(
+        "Trashing #{difference.size} of #{all_repos.size} repos")
+      difference.each do |repo|
+        @logger.debug("Trashing #{@path}/repo/#{repo} (unused)")
+        trash("#{@path}/repo/#{repo}")
       end
     end
   end
