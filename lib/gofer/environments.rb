@@ -25,7 +25,8 @@ module Gofer
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
 
       # https://docs.puppet.com/puppet/latest/reference/lang_reserved.html#environments
-      if ref !~ /^[a-z0-9_]+$/
+      # The docs are slightly wrong; A-Z are allowed.
+      if ref !~ /\A[a-z0-9_]+\Z/i
         raise "Invalid environment name '#{ref}'"
       end
 
@@ -69,7 +70,7 @@ module Gofer
       end
 
       module_refs.each do |name, info|
-        if name =~ /^\./
+        if name =~ /\A\./
           raise "Module name may not start with period: '#{name}'"
         elsif name =~ /\//
           raise "Module name may not contain /: '#{name}'"

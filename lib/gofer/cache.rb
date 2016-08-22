@@ -184,7 +184,7 @@ module Gofer
 
     def fs_sanitize(ref)
       # Escape | and replace / with |. Also escape a leading .
-      ref.sub(/^\./, "\\.").gsub(/[\\|]/, '\\\0').gsub(/\//, '|')
+      ref.sub(/\A\./, "\\.").gsub(/[\\|]/, '\\\0').gsub(/\//, '|')
     end
 
     # Assumes sha exists. Use checkout() if it might not.

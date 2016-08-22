@@ -11,7 +11,7 @@ module Gofer
     end
 
     def mod(name, options={})
-      if name =~ /^\./
+      if name =~ /\A\./
         raise "Module name may not start with period: '#{name}'"
       elsif name =~ /\//
         raise "Module name may not contain /: '#{name}'"
