@@ -49,6 +49,7 @@ module Gofer
     end
 
     def get_branches()
+      freshen()
       git("for-each-ref", "--format", "%(refname:strip=2)", "refs/heads")
         .split(/[\r\n]/)
         .reject { |line| line == "" }
