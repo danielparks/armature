@@ -7,6 +7,10 @@ module Gofer
       @cache = cache
       @path = path
       @logger = Logging.logger[self]
+
+      if not File.directory? @path
+        raise "Puppet code path does not exist: '#{@path}'"
+      end
     end
 
     def names()
