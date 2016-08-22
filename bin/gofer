@@ -8,12 +8,11 @@ include GLI::App
 
 program_desc 'deploy Puppet environments and manage modules'
 version Gofer::VERSION
+subcommand_option_handling :normal
+arguments :strict
 
 @logger = Logging.logger['gofer']
 Logging.logger.root.level = :warn
-
-subcommand_option_handling :normal
-arguments :strict
 
 desc 'Show INFO level output'
 switch [:v,:verbose]
