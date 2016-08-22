@@ -21,8 +21,21 @@ switch [:v,:verbose]
 desc 'Show DEBUG level output'
 switch [:d,:debug]
 
+if Process.uid == 0
+  code_default = '/etc/puppetlabs/code/environments'
+  cache_default = '/srv/gofer-cache'
+else
+  code_default = "#{ENV['HOME']}/.puppetlabs/etc/code/environments"
+  cache_default = "#{ENV['HOME']}/.gofer/cache"
+end
+
+desc 'Path to the code directory'
+default_value code_default
+arg_name 'DIR'
+flag [:c,:code]
+
 desc 'Path to gofer cache'
-default_value '~/.gofer/cache'
+default_value cache_default
 arg_name 'DIR'
 flag [:C,:cache]
 
@@ -38,11 +51,10 @@ command :deploy do |c|
   c.switch [:b,"all-branches"]
 
   c.action do |global_options, options, arguments|
-    cache = Gofer::Cache.new(global_options[:cache])
-    repo = cache.get_repo(arguments.shift)
+    repo = @cache.get_repo(arguments.shift)
 
-    @logger.debug "Using code directory '#{options[:code]}'"
-    environments = Gofer::Environments.new(options[:code], cache)
+    @logger.debug "Using code directory '#{@code_path}'"
+    environments = Gofer::Environments.new(@code_path, @cache)
 
     if options["all-branches"]
       if not arguments.empty?
@@ -75,30 +87,12 @@ end
 
 desc 'Remove unused objects from cache'
 command :gc do |c|
-  c.desc 'Path to the code directory'
-  c.default_value '/opt/puppetlabs/puppet...'
-  c.flag [:c,:code]
-
-  c.action do |global_options, options, arguments|
-    if ! arguments.empty?
-      raise "Arguments may not be specified"
-    end
-
-    cache = Gofer::Cache.new(global_options[:cache])
-    cache.garbage_collect(options[:code])
-  end
+  c.action { @cache.garbage_collect(@code_path) }
 end
 
 desc 'Update branches to latest revisions'
 command :update do |c|
-  c.action do |global_options, options, arguments|
-    if ! arguments.empty?
-      raise "Arguments may not be specified"
-    end
-
-    cache = Gofer::Cache.new(global_options[:cache])
-    cache.update_branches()
-  end
+  c.action { @cache.update_branches() }
 end
 
 pre do |global_options, command, options, arguments|
@@ -110,7 +104,11 @@ pre do |global_options, command, options, arguments|
   # Don't log all the git commands
   Logging.logger["Gofer::Run"].level = :info if global_options[:debug]
 
+  @logger.debug "Using code directory '#{global_options[:code]}'"
   @logger.debug "Using cache directory '#{global_options[:cache]}'"
+
+  @code_path = global_options[:code]
+  @cache = Gofer::Cache.new(global_options[:cache])
 
   true
 end
