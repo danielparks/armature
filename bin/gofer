@@ -40,46 +40,43 @@ arg_name 'DIR'
 flag [:C,:cache]
 
 desc 'Deploy a repo into environments based on branches'
+long_desc 'This accepts globs to match branch names. For example, specify "*"
+  to deploy all branches.'
 arg 'GIT_URL'
-arg 'branch', :optional=>true, :multiple=>true
-command :deploy do |c|
-  c.desc 'Path to the code directory'
-  c.default_value '/opt/puppetlabs/puppet...'
-  c.flag [:c,:code]
-
-  c.desc 'Deploy all branches'
-  c.switch [:b,"all-branches"]
-
+arg 'BRANCH', :multiple=>true
+command "deploy-branch" do |c|
+  c.desc "Delete environments that we aren't deploying"
+  c.switch [:d,"delete-old"]
   c.action do |global_options, options, arguments|
     repo = @cache.get_repo(arguments.shift)
-
-    @logger.debug "Using code directory '#{@code_path}'"
     environments = Gofer::Environments.new(@code_path, @cache)
 
-    if options["all-branches"]
-      if not arguments.empty?
-        raise "You may not specify branches to deploy with --all-branches"
+    all_branches = repo.get_branches()
+    branches = Set.new()
+
+    arguments.each do |glob|
+      found = all_branches.select do |branch|
+        File.fnmatch(glob, branch, File::FNM_PATHNAME)
       end
 
-      branches = repo.get_branches()
-      (environments.names() - branches).each do |name|
-        environments.remove(name)
+      if found.empty?
+        @logger.warn("No branches match '#{glob}'")
+      else
+        branches.merge(found)
       end
-
-      refs = branches
-    else
-      if arguments.empty?
-        raise "You must specify at least one branch to deploy"
-      end
-
-      refs = arguments
     end
 
-    refs.each do |ref|
+    if options["delete-old"]
+      (Set.new(environments.names()) - branches).each do |name|
+        environments.remove(name)
+      end
+    end
+
+    branches.each do |branch|
       begin
-        environments.checkout_ref(repo, ref)
+        environments.checkout_ref(repo, branch)
       rescue => e
-        @logger.error("Error deploy ref '#{ref}' (skipping): #{e}")
+        @logger.error("Error deploying branch '#{branch}' (skipping): #{e}")
       end
     end
   end
