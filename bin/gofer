@@ -21,22 +21,22 @@ desc 'Show DEBUG level output'
 switch [:d,:debug]
 
 if Process.uid == 0
-  code_default = '/etc/puppetlabs/code/environments'
+  environments_default = '/etc/puppetlabs/code/environments'
   cache_default = '/srv/gofer-cache'
 else
-  code_default = "#{ENV['HOME']}/.puppetlabs/etc/code/environments"
+  environments_default = "#{ENV['HOME']}/.puppetlabs/etc/code/environments"
   cache_default = "#{ENV['HOME']}/.gofer/cache"
 end
 
-desc 'Path to the code directory'
-default_value code_default
+desc 'Path to the environments directory'
+default_value environments_default
 arg_name 'DIR'
-flag [:c,:code]
+flag [:e,:environments]
 
 desc 'Path to gofer cache'
 default_value cache_default
 arg_name 'DIR'
-flag [:C,:cache]
+flag [:c,:cache]
 
 desc 'Deploy a repo into environments based on branches'
 long_desc 'This accepts globs to match branch names. For example, specify "*"
@@ -48,7 +48,7 @@ command "deploy-branch" do |c|
   c.switch [:d,"delete-old"]
   c.action do |global_options, options, arguments|
     repo = @cache.get_repo(arguments.shift)
-    environments = Gofer::Environments.new(@code_path, @cache)
+    environments = Gofer::Environments.new(@environments_path, @cache)
 
     all_branches = repo.get_branches()
     branches = Set.new()
@@ -83,7 +83,7 @@ end
 
 desc 'Remove unused objects from cache'
 command :gc do |c|
-  c.action { @cache.garbage_collect(@code_path) }
+  c.action { @cache.garbage_collect(@environments_path) }
 end
 
 desc 'Update branches to latest revisions'
@@ -100,10 +100,10 @@ pre do |global_options, command, options, arguments|
   # Don't log all the git commands
   Logging.logger["Gofer::Run"].level = :info if global_options[:debug]
 
-  @logger.debug "Using code directory '#{global_options[:code]}'"
+  @logger.debug "Using environments directory '#{global_options[:environments]}'"
   @logger.debug "Using cache directory '#{global_options[:cache]}'"
 
-  @code_path = global_options[:code]
+  @environments_path = global_options[:environments]
   @cache = Gofer::Cache.new(global_options[:cache])
 
   true
