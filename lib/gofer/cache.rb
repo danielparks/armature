@@ -265,16 +265,16 @@ module Gofer
           raise "Symlink path more than 6 links deep: #{visited}"
         end
 
-        return follow_reference(target, referenced, visited)
+        target = follow_reference(target, referenced, visited)
       else
         # Assume this is an object
-
-        # Delay updating referenced until now so that we don't interfere with
-        # loop detection. (Adding links as we find them would cause loops to
-        # short circuit, resulting in a return of nil.)
-        referenced.merge(visited)
-        return target
       end
+
+      # Delay updating referenced until now so that we don't interfere with
+      # loop detection. (Adding links as we find them would cause loops to
+      # short circuit, resulting in a return of nil.)
+      referenced.merge(visited)
+      return target
     end
 
     def find_all_references(code_path)
@@ -303,6 +303,7 @@ module Gofer
       @logger.info(
         "Deleting #{difference.size} of #{all_references.size} references")
       difference.each do |path|
+        @logger.debug("Deleting #{path} (unused)")
         File.delete(path)
       end
     end
@@ -315,6 +316,7 @@ module Gofer
       @logger.info(
         "Trashing #{difference.size} of #{all_objects.size} objects")
       difference.each do |path|
+        @logger.debug("Trashing #{path} (unused)")
         trash(path)
       end
     end
