@@ -68,11 +68,11 @@ module Gofer
       end
 
       # This will raise if the ref doesn't exist
-      sha = repo.find_ref_sha(ref)
-      if sha == ref
-        type = "sha"
-      else
-        type = repo.ref_type(ref)
+      begin
+        type, sha = repo.ref_info(ref)
+      rescue
+        repo.freshen()
+        type, sha = repo.ref_info(ref)
       end
 
       repo_dir = "#{@path}/#{type}/#{repo.name}"

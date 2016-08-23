@@ -10,6 +10,7 @@ module Gofer
       @name = name
       @fetched = false
       @logger = Logging.logger[self]
+      @ref_cache = {}
     end
 
     def url
@@ -50,20 +51,29 @@ module Gofer
 
     def get_branches()
       freshen()
-      git("for-each-ref", "--format", "%(refname:strip=2)", "refs/heads")
-        .split(/[\r\n]/)
-        .reject { |line| line == "" }
+      data = git("for-each-ref",
+          "--format", "%(objectname) %(refname:strip=2)",
+          "refs/heads")
+      lines = data.split(/[\r\n]/).reject { |line| line == "" }
+
+      lines.map do |line|
+        hash, name = line.split(' ', 2)
+        @ref_cache[name] = [:branch, hash]
+        name
+      end
     end
 
-    # Get the type of a ref (:branch, :tag, or :sha)
-    def ref_type(ref)
-      if ref_sha("refs/heads/#{ref}")
-        :branch
-      elsif ref_sha("refs/tags/#{ref}")
-        :tag
-      elsif ref_sha(ref)
+    # Get the type of a ref (:branch, :tag, or :sha) and its sha as [type, sha]
+    def ref_info(ref)
+      if @ref_cache[ref]
+        @ref_cache[ref]
+      elsif sha = rev_parse("refs/heads/#{ref}")
+        @ref_cache[ref] = [:branch, sha]
+      elsif sha = rev_parse("refs/tags/#{ref}")
+        @ref_cache[ref] = [:tag, sha]
+      elsif sha = rev_parse(ref)
         if sha == ref
-          :sha
+          @ref_cache[ref] = [:sha, sha]
         else
           raise "Unknown ref type for '#{ref}'"
         end
@@ -72,26 +82,17 @@ module Gofer
       end
     end
 
+  private
+
     # Get the sha for a ref, or nil if it doesn't exist
-    def ref_sha(ref)
-      git("rev-parse", "--verify", "#{ref}^{commit}").chomp
+    def rev_parse(ref)
+      if @ref_cache[ref]
+        @ref_cache[ref][1]
+      else
+        git("rev-parse", "--verify", "#{ref}^{commit}").chomp
+      end
     rescue Gofer::Run::CommandFailureError
       nil
-    end
-
-    # Get the sha for a ref, fetching once if it doesn't exist
-    def find_ref_sha(ref)
-      sha = ref_sha(ref)
-      if sha.nil? and freshen()
-        # git fetch was actually called
-        sha = ref_sha(ref)
-      end
-
-      if sha.nil?
-        raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
-      end
-
-      sha
     end
   end
 end

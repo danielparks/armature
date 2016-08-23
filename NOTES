@@ -4,6 +4,4 @@ Splitting it up into prepare and activate steps means that branches and tags can
 
 It might make sense to run our own webhook, rather than relying on a wrapper like Jenkins.
 
-I could add a ref cache that gets filled when I get branch names. That allows me to avoid a git ref lookup every time I update a branch.
-
 Maybe I should git rid of update and make sure deploy updates branches.
