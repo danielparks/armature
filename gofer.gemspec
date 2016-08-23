@@ -6,6 +6,7 @@ spec = Gem::Specification.new do |s|
   s.author = 'Daniel Parks'
   s.email = 'dp-gofer@oxidized.org'
   s.homepage = 'http://oxidized.org'
+  s.license = 'BSD-2-Clause'
   s.platform = Gem::Platform::RUBY
   s.summary = 'Tool to deploy Puppet environments and manage modules'
   s.files = `git ls-files`.split("\n")
