@@ -5,12 +5,13 @@ module Gofer
     # path is the path to the directory containing all the environments
     def initialize(path, cache)
       @cache = cache
-      @path = path
       @logger = Logging.logger[self]
 
-      if not File.directory? @path
-        raise "Puppet code path does not exist: '#{@path}'"
+      if not File.directory? path
+        raise "Puppet environments path does not exist: '#{path}'"
       end
+
+      @path = File.realpath(path)
     end
 
     def names()
