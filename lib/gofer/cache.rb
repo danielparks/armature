@@ -113,6 +113,14 @@ module Gofer
       # Get target path relative to new_path
       target_path_from_new = target_path.relative_path_from(real_new_dir)
 
+      # Check if the symlink is already correct
+      begin
+        if target_path_from_new.to_s == File.readlink(new_path)
+          return
+        end
+      rescue Errno::ENOENT
+      end
+
       temp_path = new_temp_path()
       File.symlink(target_path_from_new, temp_path)
       File.rename(temp_path, new_path)
