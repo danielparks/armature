@@ -11,6 +11,8 @@ module Gofer
       @sequence = 0
       @logger = Logging.logger[self]
 
+      # Future compatibility. We may have non-git repos in the future.
+      path = "#{path}/git"
       %w{repo sha tag branch object tmp}.each do |subdir|
         FileUtils.mkdir_p "#{@path}/#{subdir}"
       end
