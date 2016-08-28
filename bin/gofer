@@ -38,13 +38,13 @@ default_value cache_default
 arg_name 'DIR'
 flag [:c,:cache]
 
-desc 'Deploy a repo into environments based on branches'
+desc 'Deploy branches as environments'
 long_desc 'This accepts globs to match branch names. For example, specify "*"
   to deploy all branches.'
 arg 'GIT_URL'
 arg 'BRANCH', :multiple=>true
 command "deploy-branch" do |c|
-  c.desc "Delete environments that we aren't deploying"
+  c.desc "Delete environments that aren't being deployed"
   c.switch [:d,"delete-old"]
   c.action do |global_options, options, arguments|
     repo = @cache.get_repo(arguments.shift)
@@ -86,7 +86,7 @@ command :gc do |c|
   c.action { @cache.garbage_collect(@environments_path) }
 end
 
-desc 'Update branches to latest revisions'
+desc 'Update all branches in the cache'
 command :update do |c|
   c.action { @cache.update_branches() }
 end
