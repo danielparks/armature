@@ -21,7 +21,7 @@ module Gofer
         @logger.info("Fetching from #{url}")
         Gofer::Util::lock @git_dir, File::LOCK_EX, "fetch" do
           # Use --force to handle history changes
-          git "fetch", "--force"
+          git "remote", "update", "--prune"
         end
         @fetched = true
         true
