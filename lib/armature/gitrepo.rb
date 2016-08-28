@@ -1,4 +1,4 @@
-module Gofer
+module Armature
   class RefError < StandardError
   end
 
@@ -20,8 +20,7 @@ module Gofer
     def freshen
       if ! @fetched
         @logger.info("Fetching from #{url}")
-        Gofer::Util::lock @git_dir, File::LOCK_EX, "fetch" do
-          # Use --force to handle history changes
+        Armature::Util::lock @git_dir, File::LOCK_EX, "fetch" do
           git "remote", "update", "--prune"
         end
         @fetched = true
@@ -34,7 +33,7 @@ module Gofer
     def git(*arguments)
       # This accepts a hash of options as the last argument
       options = if arguments.last.is_a? Hash then arguments.pop else {} end
-      options = Gofer::Util.process_options(options, { :work_dir => nil }, {})
+      options = Armature::Util.process_options(options, { :work_dir => nil }, {})
 
       if options[:work_dir]
         work_dir_arguments = [ "--work-tree=" + options[:work_dir] ]
@@ -46,7 +45,7 @@ module Gofer
         + work_dir_arguments \
         + arguments
 
-      Gofer::Run.command(*command)
+      Armature::Run.command(*command)
     end
 
     def get_branches()
@@ -91,7 +90,7 @@ module Gofer
       else
         git("rev-parse", "--verify", "#{ref}^{commit}").chomp
       end
-    rescue Gofer::Run::CommandFailureError
+    rescue Armature::Run::CommandFailureError
       nil
     end
   end

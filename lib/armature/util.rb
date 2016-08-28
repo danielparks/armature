@@ -1,6 +1,6 @@
 require 'json'
 
-module Gofer::Util
+module Armature::Util
   extend self
 
   # Validate options passed to a function
@@ -42,7 +42,7 @@ module Gofer::Util
   end
 
   def lock_file(path, mode, message=nil)
-    # Any user that can open the lock file can flock it, causing gofer
+    # Any user that can open the lock file can flock it, causing armature
     # operations to block.
     File.open(path, File::RDWR|File::CREAT, 0600) do |lock|
       if not lock.flock(mode | File::LOCK_NB)

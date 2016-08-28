@@ -1,6 +1,6 @@
 # Puppetfile syntax
 
-The Puppetfile is just ruby. Gofer provides one important function:
+The Puppetfile is just ruby. Armature provides one important function:
 
 ### `mod 'name', :git=>'url', :ref=>'ref'`
 Specifies a module to install.
@@ -24,7 +24,7 @@ mod 'aws',
 
 ## Compatibility
 
-Gofer does not support the full syntax of either
+Armature does not support the full syntax of either
 [r10k](https://github.com/puppetlabs/r10k/blob/master/doc/puppetfile.mkd) or
 [librarian-puppet](http://librarian-puppet.com). It will likely support more of
 r10k's syntax at some point.

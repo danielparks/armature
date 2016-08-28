@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    gofer (0.0.1)
+    armature (0.1.0)
       gli (= 2.14.0)
       logging (~> 2)
 
@@ -19,7 +19,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  gofer!
+  armature!
 
 BUNDLED WITH
    1.10.4

@@ -29,8 +29,8 @@ be checked more frequently.
    2. _Stage_: update repos an check out the needed shas
    3. _Activate_: make the ref changes
 
-   _Prepare_ will be run on the gofer master (the Puppet MoM, presumably) and
-   will generate an data object to pass to other nodes for the _stage_ and
+   _Prepare_ will be run on the armature master (the Puppet MoM, presumably)
+   and will generate a data object to pass to other nodes for the _stage_ and
    _activate_ steps.
 
    We have to be careful that a poorly timed garbage collect doesn't wipe out

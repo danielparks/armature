@@ -1,4 +1,4 @@
-module Gofer
+module Armature
   class Puppetfile
     attr_reader :results
 
@@ -21,7 +21,7 @@ module Gofer
         raise "Module #{name} declared twice"
       end
 
-      @results[name] = Gofer::Util.process_options(options, {}, {
+      @results[name] = Armature::Util.process_options(options, {}, {
         :git => nil,
         :ref => "master",
       })

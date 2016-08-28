@@ -2,7 +2,7 @@ require 'fileutils'
 require 'pathname'
 require 'set'
 
-module Gofer
+module Armature
   class Cache
     def initialize(path)
       @repos = {}
@@ -28,12 +28,12 @@ module Gofer
       repo_path = "#{@path}/repo/#{safe_url}"
       if ! Dir.exist? repo_path
         @logger.info("Cloning '#{url}' for the first time")
-        Gofer::Util::lock repo_path, File::LOCK_EX, "clone" do
+        Armature::Util::lock repo_path, File::LOCK_EX, "clone" do
           if Dir.exist? repo_path
             @logger.info("Another process cloned '#{url}' while we were blocked")
           else
             # Mirror keeps branches up to date. Ignore output.
-            Gofer::Run.command(
+            Armature::Run.command(
               "git", "clone", "--quiet", "--mirror", url, repo_path)
             @logger.debug("Done cloning '#{url}'")
           end
@@ -50,7 +50,7 @@ module Gofer
 
     # Check out a ref from a repo and return the path
     def checkout(repo, ref, options={})
-      options = Gofer::Util.process_options(options,
+      options = Armature::Util.process_options(options,
         { :name=>nil }, { :refresh=>false })
 
       safe_ref = fs_sanitize(ref)
@@ -156,7 +156,7 @@ module Gofer
         raise "Cannot re-lock cache"
       end
 
-      Gofer::Util::lock_file "#{@path}/lock", mode, message do |lock_file|
+      Armature::Util::lock_file "#{@path}/lock", mode, message do |lock_file|
         @lock_file = lock_file
         yield
       end
@@ -197,7 +197,7 @@ module Gofer
 
       FileUtils.mkdir_p(repo_path)
 
-      Gofer::Util::lock sha_path, File::LOCK_EX, "checkout" do
+      Armature::Util::lock sha_path, File::LOCK_EX, "checkout" do
         # Another process may have created the object before we got the lock
         if Dir.exist? sha_path
           return sha_path

@@ -1,7 +1,7 @@
 require 'open3'
 require 'shellwords'
 
-module Gofer::Run
+module Armature::Run
   extend self
 
   class CommandFailureError < StandardError
@@ -17,7 +17,7 @@ module Gofer::Run
     end
 
     def to_s
-      command_str = Gofer::Run.command_to_string(*@command)
+      command_str = Armature::Run.command_to_string(*@command)
       "Command failed: #{command_str}\nReturn: #{@status}\nOutput:\n#{@output}\n"
     end
   end

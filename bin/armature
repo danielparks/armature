@@ -1,17 +1,17 @@
 #!/usr/bin/env ruby
 
 require 'gli'
-require 'gofer'
+require 'armature'
 require 'logging'
 
 include GLI::App
 
-program_desc 'deploy Puppet environments and manage modules'
-version Gofer::VERSION
+program_desc 'Deploy Puppet environments and manage modules'
+version Armature::VERSION
 subcommand_option_handling :normal
 arguments :strict
 
-@logger = Logging.logger['gofer']
+@logger = Logging.logger['armature']
 Logging.logger.root.level = :warn
 
 desc 'Show INFO level output'
@@ -22,10 +22,10 @@ switch [:d,:debug]
 
 if Process.uid == 0
   environments_default = '/etc/puppetlabs/code/environments'
-  cache_default = '/srv/gofer-cache'
+  cache_default = '/srv/armature-cache'
 else
   environments_default = "#{ENV['HOME']}/.puppetlabs/etc/code/environments"
-  cache_default = "#{ENV['HOME']}/.gofer/cache"
+  cache_default = "#{ENV['HOME']}/.armature/cache"
 end
 
 desc 'Path to the environments directory'
@@ -33,7 +33,7 @@ default_value environments_default
 arg_name 'DIR'
 flag [:e,:environments]
 
-desc 'Path to gofer cache'
+desc 'Path to armature cache'
 default_value cache_default
 arg_name 'DIR'
 flag [:c,:cache]
@@ -48,7 +48,7 @@ command "deploy-branch" do |c|
   c.switch [:d,"delete-old"]
   c.action do |global_options, options, arguments|
     repo = @cache.get_repo(arguments.shift)
-    environments = Gofer::Environments.new(@environments_path, @cache)
+    environments = Armature::Environments.new(@environments_path, @cache)
 
     all_branches = repo.get_branches()
     branches = Set.new()
@@ -98,13 +98,13 @@ pre do |global_options, command, options, arguments|
   Logging.logger.root.level = :debug if global_options[:debug]
 
   # Don't log all the git commands
-  Logging.logger["Gofer::Run"].level = :info if global_options[:debug]
+  Logging.logger["Armature::Run"].level = :info if global_options[:debug]
 
   @logger.debug "Using environments directory '#{global_options[:environments]}'"
   @logger.debug "Using cache directory '#{global_options[:cache]}'"
 
   @environments_path = global_options[:environments]
-  @cache = Gofer::Cache.new(global_options[:cache])
+  @cache = Armature::Cache.new(global_options[:cache])
 
   true
 end

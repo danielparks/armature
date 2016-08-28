@@ -1,4 +1,4 @@
-module Gofer
+module Armature
   class Environments
     attr_reader :path
 
@@ -49,7 +49,7 @@ module Gofer
         puppetfile_path = "#{ref_path}/Puppetfile"
         if File.exist?(puppetfile_path)
           @logger.debug "Found Puppetfile in environment '#{ref}'"
-          puppetfile = Gofer::Puppetfile.new()
+          puppetfile = Armature::Puppetfile.new()
           puppetfile.include(puppetfile_path)
           module_refs = puppetfile.results
           @logger.debug "Loaded Puppetfile in environment '#{ref}' with #{module_refs.length} modules"
