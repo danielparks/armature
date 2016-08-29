@@ -111,6 +111,9 @@ pre do |global_options, command, options, arguments|
 end
 
 on_error do |exception|
+  if exception.is_a? SystemExit
+    raise
+  end
   @logger.error(exception)
 end
 

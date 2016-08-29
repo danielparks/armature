@@ -8,7 +8,7 @@ module Armature
       @logger = Logging.logger[self]
 
       if not File.directory? path
-        raise "Puppet environments path does not exist: '#{path}'"
+        abort "Puppet environments path does not exist: '#{path}'"
       end
 
       @path = File.realpath(path)
