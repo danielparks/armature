@@ -30,7 +30,7 @@ module Armature
           if Dir.exist? repo_path
             @logger.info("Another process cloned '#{url}' while we were blocked")
           else
-            # Mirror keeps branches up to date. Ignore output.
+            # Mirror copies *all* refs, not just branches. Ignore output.
             Armature::Run.command(
               "git", "clone", "--quiet", "--mirror", url, repo_path)
             @logger.debug("Done cloning '#{url}'")
