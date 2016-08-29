@@ -131,13 +131,13 @@ module Armature
       end
     end
 
-    def garbage_collect(code_path)
-      lock File::LOCK_EX, "garbage_collect #{code_path}" do
+    def garbage_collect(environments_path)
+      lock File::LOCK_EX, "garbage_collect #{environments_path}" do
         # Remove all object locks
         FileUtils.rm Dir.glob("#{@path}/*/.*.lock")
         FileUtils.rm Dir.glob("#{@path}/*/*/.*.lock")
 
-        referenced_paths = find_all_references(code_path)
+        referenced_paths = find_all_references(environments_path)
 
         garbage_collect_refs(referenced_paths)
         garbage_collect_objects(referenced_paths)
@@ -272,10 +272,10 @@ module Armature
       return target
     end
 
-    def find_all_references(code_path)
+    def find_all_references(environments_path)
       referenced_paths = Set.new
 
-      Dir.glob("#{code_path}/*") do |env_path|
+      Dir.glob("#{environments_path}/*") do |env_path|
         object_path = follow_reference(env_path, referenced_paths)
         if object_path
           # We could get a nil if two branches evaluate to the same sha.
