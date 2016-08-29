@@ -38,6 +38,28 @@ default_value cache_default
 arg_name 'DIR'
 flag [:c,:cache]
 
+desc 'Deploy a ref as an environment'
+arg 'GIT_URL'
+arg 'REF'
+arg 'NAME'
+command "deploy-ref" do |c|
+  c.action do |global_options, options, arguments|
+    # This should fail as early as possible (e.g. if the path isn't correct)
+    environments = Armature::Environments.new(@environments_path, @cache)
+
+    repo = @cache.get_repo(arguments.shift)
+    ref = arguments.shift
+    name = arguments.shift
+
+    begin
+      environments.checkout_ref(repo, ref, name)
+    rescue
+      @logger.error("Error deploying ref '#{ref}' as '#{name}'")
+      raise
+    end
+  end
+end
+
 desc 'Deploy branches as environments'
 long_desc 'This accepts globs to match branch names. For example, specify "*"
   to deploy all branches.'
