@@ -30,8 +30,7 @@ module Armature
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
 
       # https://docs.puppet.com/puppet/latest/reference/lang_reserved.html#environments
-      # The docs are slightly wrong; A-Z are allowed.
-      if name !~ /\A[a-z0-9_]+\Z/i
+      if name !~ /\A[a-z0-9_]+\Z/
         raise "Invalid environment name '#{name}'"
       end
 
