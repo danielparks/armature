@@ -47,9 +47,10 @@ command "deploy-branch" do |c|
   c.desc "Delete environments that aren't being deployed"
   c.switch [:d,"delete-old"]
   c.action do |global_options, options, arguments|
-    repo = @cache.get_repo(arguments.shift)
+    # This should fail as early as possible (e.g. if the path isn't correct)
     environments = Armature::Environments.new(@environments_path, @cache)
 
+    repo = @cache.get_repo(arguments.shift)
     all_branches = repo.get_branches()
     branches = Set.new()
 
