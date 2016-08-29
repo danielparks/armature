@@ -56,25 +56,26 @@ module Armature
       lines = data.split(/[\r\n]/).reject { |line| line == "" }
 
       lines.map do |line|
-        hash, name = line.split(' ', 2)
-        @ref_cache[name] = [:branch, hash]
-        name
+        sha, branch = line.split(' ', 2)
+        ref = "refs/heads/#{branch}"
+        @ref_cache[ref] = [:mutable, sha, ref]
+        branch
       end
     end
 
     # Get the type of a ref (:branch, :tag, or :sha) and its sha as [type, sha]
     def ref_info(ref)
-      if @ref_cache[ref]
-        @ref_cache[ref]
+      if result = check_cache(ref)
+        result
       elsif sha = rev_parse("refs/heads/#{ref}")
-        @ref_cache[ref] = [:branch, sha]
+        @ref_cache["refs/heads/#{ref}"] = [:mutable, sha, "refs/heads/#{ref}"]
       elsif sha = rev_parse("refs/tags/#{ref}")
-        @ref_cache[ref] = [:tag, sha]
+        @ref_cache["refs/tags/#{ref}"] = [:immutable, sha, "refs/tags/#{ref}"]
       elsif sha = rev_parse(ref)
         if sha == ref
-          @ref_cache[ref] = [:sha, sha]
+          @ref_cache[ref] = [:immutable, sha, ref]
         else
-          raise "Unknown ref type for '#{ref}'"
+          @ref_cache[ref] = [:mutable, sha, ref]
         end
       else
         raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
@@ -82,14 +83,15 @@ module Armature
     end
 
   private
+    def check_cache(ref)
+      @ref_cache[ref] \
+      || @ref_cache["refs/heads/#{ref}"] \
+      || @ref_cache["refs/tags/#{ref}"]
+    end
 
     # Get the sha for a ref, or nil if it doesn't exist
     def rev_parse(ref)
-      if @ref_cache[ref]
-        @ref_cache[ref][1]
-      else
-        git("rev-parse", "--verify", "#{ref}^{commit}").chomp
-      end
+      git("rev-parse", "--verify", "#{ref}^{commit}").chomp
     rescue Armature::Run::CommandFailureError
       nil
     end

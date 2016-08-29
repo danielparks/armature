@@ -12,7 +12,7 @@ module Armature
       @sequence = 0
       @logger = Logging.logger[self]
 
-      %w{repo sha tag branch object tmp}.each do |subdir|
+      %w{repo mutable immutable object tmp}.each do |subdir|
         FileUtils.mkdir_p("#{@path}/#{subdir}")
       end
     end
@@ -58,20 +58,34 @@ module Armature
         repo.freshen()
       else
         # Check cache first
-        ["sha", "tag", "branch"].each do |type|
+        ["immutable", "mutable"].each do |type|
           ref_path = "#{@path}/#{type}/#{repo.name}/#{safe_ref}"
           if Dir.exist? ref_path
             return ref_path
           end
         end
+
+        # Special case, since branches may be refered to by name
+        safe_branch = fs_sanitize("refs/heads/#{ref}")
+        ref_path = "#{@path}/mutable/#{repo.name}/#{safe_branch}"
+        if Dir.exist? ref_path
+          return ref_path
+        end
+
+        # Special case, since tags may be refered to by name
+        safe_tag = fs_sanitize("refs/tags/#{ref}")
+        ref_path = "#{@path}/immutable/#{repo.name}/#{safe_tag}"
+        if Dir.exist? ref_path
+          return ref_path
+        end
       end
 
       # This will raise if the ref doesn't exist
       begin
-        type, sha = repo.ref_info(ref)
+        type, sha, real_ref = repo.ref_info(ref)
       rescue
         repo.freshen()
-        type, sha = repo.ref_info(ref)
+        type, sha, real_ref = repo.ref_info(ref)
       end
 
       repo_dir = "#{@path}/#{type}/#{repo.name}"
@@ -115,18 +129,19 @@ module Armature
     end
 
     def update_branches()
-      Dir.glob("#{@path}/branch/*/*") do |path|
-        branch = File.basename(path)
+      Dir.glob("#{@path}/mutable/*/*") do |path|
+        ref = File.basename(path)
+        ### FIXME decode
         repo = get_repo_by_name(File.basename(File.dirname(path)))
-        @logger.info("Updating #{branch} branch from #{repo.url}")
+        @logger.info("Updating #{ref} ref from #{repo.url}")
 
         begin
-          checkout(repo, branch, :refresh=>true)
+          checkout(repo, ref, :refresh=>true)
         rescue RefError
           # The ref no longer exists, so we can't update it. Leave the old
           # checkout in place for safety; garbage collection will remove it if
           # it's no longer used.
-          @logger.info("#{branch} branch missing in remote; leaving untouched")
+          @logger.info("#{ref} ref missing in remote; leaving untouched")
         end
       end
     end
@@ -187,7 +202,7 @@ module Armature
     def checkout_sha(repo, sha, name=nil)
       safe_sha = fs_sanitize(sha)
 
-      repo_path = "#{@path}/sha/#{repo.name}"
+      repo_path = "#{@path}/immutable/#{repo.name}"
       sha_path = "#{repo_path}/#{safe_sha}"
       if Dir.exist? sha_path
         return sha_path
@@ -245,13 +260,14 @@ module Armature
         raise "Expected a symlink: #{path}"
       end
 
-      target = Pathname.new(File.join(
-        File.dirname(path), File.readlink(path))).cleanpath.to_s
-
+      target = Pathname.new(File.readlink(path)).cleanpath.to_s
       if referenced.include? target
         # Short cut. We've already seen this path.
+        @logger.debug("follow_reference: shortcutting #{path} -> #{target}")
         return nil
       end
+
+      @logger.debug("follow_reference: #{path} -> #{target}")
 
       visited << target
 
@@ -261,8 +277,13 @@ module Armature
         end
 
         target = follow_reference(target, referenced, visited)
-      else
+      elsif File.directory? target
         # Assume this is an object
+        @logger.debug("follow_reference: object: #{target}")
+      elsif not File.exist? target
+        @logger.warn("follow_reference: does not exist: #{target}")
+      else
+        @logger.error("follow_reference: not an object or symlink: #{target}")
       end
 
       # Delay updating referenced until now so that we don't interfere with
@@ -274,8 +295,12 @@ module Armature
 
     def find_all_references(environments_path)
       referenced_paths = Set.new
+      environments = Dir.glob("#{environments_path}/*")
 
-      Dir.glob("#{environments_path}/*") do |env_path|
+      @logger.debug(
+        "Looking for references in #{environments.count} environments")
+
+      environments.each do |env_path|
         object_path = follow_reference(env_path, referenced_paths)
         if object_path
           # We could get a nil if two branches evaluate to the same sha.
@@ -293,7 +318,7 @@ module Armature
     def garbage_collect_refs(referenced_paths)
       # Must be run from garbage_collect, since that handles the lock as well
       # as emptying the trash
-      all_references = Set.new(Dir.glob("#{@path}/{sha,tag,branch}/*/*"))
+      all_references = Set.new(Dir.glob("#{@path}/{im,}mutable/*/*"))
       difference = all_references - referenced_paths
       @logger.info(
         "Deleting #{difference.size} of #{all_references.size} references")
@@ -323,7 +348,7 @@ module Armature
       all_repos = Set.new(all_repos.map { |path| File.basename(path) })
       used_repos = Set.new()
 
-      referenced_repos = Dir.glob("#{@path}/{sha,tag,branch}/*")
+      referenced_repos = Dir.glob("#{@path}/{im,}mutable/*")
       referenced_repos.each do |path|
         # No refs within the repo in use (for this ref type)
         if Dir.glob("#{path}/*").empty?

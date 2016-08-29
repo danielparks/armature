@@ -25,43 +25,47 @@ module Armature
       @logger.debug "Environment '#{name}' does not exist"
     end
 
-    def checkout_ref(repo, ref)
+    def checkout_ref(repo, ref, name=ref)
       # This will add and update a modules dir in any repo, even if the repo is
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
 
       # https://docs.puppet.com/puppet/latest/reference/lang_reserved.html#environments
       # The docs are slightly wrong; A-Z are allowed.
-      if ref !~ /\A[a-z0-9_]+\Z/i
-        raise "Invalid environment name '#{ref}'"
+      if name !~ /\A[a-z0-9_]+\Z/i
+        raise "Invalid environment name '#{name}'"
       end
 
       @cache.lock File::LOCK_SH do
-        @logger.info "Deploying ref '#{ref}' from '#{repo.url}'"
+        @logger.info "Deploying ref '#{ref}' from '#{repo.url}' as" \
+          " environment '#{name}'"
 
         begin
           ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
         rescue RefError
-          @logger.info "Ref '#{ref}' does not exist; ensuring environment is gone"
-          remove(ref)
+          @logger.info "Ref '#{ref}' does not exist; ensuring environment" \
+            " '#{name}' is gone"
+          remove(name)
           return
         end
 
         puppetfile_path = "#{ref_path}/Puppetfile"
         if File.exist?(puppetfile_path)
-          @logger.debug "Found Puppetfile in environment '#{ref}'"
+          @logger.debug "Found Puppetfile in environment '#{name}'"
           puppetfile = Armature::Puppetfile.new()
           puppetfile.include(puppetfile_path)
           module_refs = puppetfile.results
-          @logger.debug "Loaded Puppetfile in environment '#{ref}' with #{module_refs.length} modules"
+          @logger.debug "Loaded Puppetfile in environment '#{name}' with" \
+            " #{module_refs.length} modules"
         else
-          @logger.debug "No Puppetfile in environment '#{ref}'"
+          @logger.debug "No Puppetfile in environment '#{name}'"
           module_refs = {}
         end
 
         update_modules(ref_path, module_refs)
 
-        @cache.atomic_symlink(ref_path, "#{@path}/#{ref}")
-        @logger.debug "Done deploying ref '#{ref}' from '#{repo.url}'"
+        @cache.atomic_symlink(ref_path, "#{@path}/#{name}")
+        @logger.debug "Done deploying ref '#{ref}' from '#{repo.url}' as" \
+          " environment '#{name}'"
       end
     end
 
@@ -81,8 +85,10 @@ module Armature
           raise "Module name may not contain /: '#{name}'"
         end
 
-        repo =  @cache.get_repo(info[:git])
-        ref_path = @cache.checkout(repo, info[:ref], :name=>"#{name}.#{info[:ref]}")
+        ref_path = @cache.checkout(
+          @cache.get_repo(info[:git]),
+          info[:ref],
+          :name=>"#{name}.#{info[:ref]}")
 
         @cache.atomic_symlink(ref_path, "#{modules_path}/#{name}")
       end
