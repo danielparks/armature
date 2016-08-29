@@ -5,18 +5,16 @@ require 'set'
 module Armature
   class Cache
     def initialize(path)
+      FileUtils.mkdir_p(path)
+      @path = File.realpath(path)
       @repos = {}
       @process_prefix = "#{Time.now.to_i}.#{Process.pid}"
       @sequence = 0
       @logger = Logging.logger[self]
 
-      # Future compatibility. We may have non-git repos in the future.
-      path = "#{path}/git"
       %w{repo sha tag branch object tmp}.each do |subdir|
-        FileUtils.mkdir_p "#{path}/#{subdir}"
+        FileUtils.mkdir_p("#{@path}/#{subdir}")
       end
-
-      @path = File.realpath(path)
     end
 
     # Get GitRepo object for a local clone of a remote repo at a URL
