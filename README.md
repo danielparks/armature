@@ -3,7 +3,7 @@
 A tool for deploying Puppet environments and modules.
 
 ~~~
-$ armature deploy-branch my-puppet-code.git '*'
+$ armature deploy-branches my-puppet-code.git '*'
 ~~~
 
 Armature sets up Puppet environments for each branch in your control repo and
@@ -34,7 +34,7 @@ _This is an alpha release. The interface is likely to change significantly._
 There are three commands you need to use. Run `armature help` to learn about
 options, or `armature help <command>` to learn about a specific command.
 
-### `armature deploy-branch <git-url> <branch>`
+### `armature deploy-branches <git-url> <branch>`
 
 Deploys branches from a git repository as environments.
 
