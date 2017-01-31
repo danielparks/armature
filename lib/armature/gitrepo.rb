@@ -51,15 +51,15 @@ module Armature
     def get_branches()
       freshen()
       data = git("for-each-ref",
-          "--format", "%(objectname) %(refname:strip=2)",
+          "--format", "%(objectname) %(refname)",
           "refs/heads")
       lines = data.split(/[\r\n]/).reject { |line| line == "" }
 
       lines.map do |line|
-        sha, branch = line.split(' ', 2)
-        ref = "refs/heads/#{branch}"
+        sha, ref = line.split(' ', 2)
         @ref_cache[ref] = [:mutable, sha, ref]
-        branch
+        # Strip refs/heads/ from the beginning of each ref
+        ref["refs/heads/".length .. -1]
       end
     end
 
