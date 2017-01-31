@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    puppet-armature (0.2.1)
+    puppet-armature (0.2.2)
       gli (= 2.14.0)
       logging (~> 2)
 
