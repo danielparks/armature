@@ -8,6 +8,7 @@ module Armature
 
     def include(path)
       instance_eval(IO.read(path), path)
+      @results
     end
 
     def mod(name, options={})

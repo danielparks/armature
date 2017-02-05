@@ -50,9 +50,7 @@ module Armature
         puppetfile_path = "#{ref_path}/Puppetfile"
         if File.exist?(puppetfile_path)
           @logger.debug "Found Puppetfile in environment '#{name}'"
-          puppetfile = Armature::Puppetfile.new()
-          puppetfile.include(puppetfile_path)
-          module_refs = puppetfile.results
+          module_refs = Armature::Puppetfile.new().include(puppetfile_path)
           @logger.debug "Loaded Puppetfile in environment '#{name}' with" \
             " #{module_refs.length} modules"
         else
