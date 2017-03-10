@@ -14,7 +14,7 @@ module Armature
       @sequence = 0
       @logger = Logging.logger[self]
 
-      %w{repo mutable immutable object tmp}.each do |subdir|
+      %w{repo ref/mutable ref/immutable ref/identity object tmp}.each do |subdir|
         FileUtils.mkdir_p("#{@path}/#{subdir}")
       end
     end
@@ -56,56 +56,38 @@ module Armature
     end
 
     # Check out a ref from a repo and return the path
-    def checkout(repo, ref, options={})
-      options = Armature::Util.process_options(options,
-        { :name=>nil }, { :refresh=>false })
-
-      safe_ref = fs_sanitize(ref)
-
-      if options[:refresh]
+    def checkout(repo, ref, refresh=false, options={})
+      if refresh
         # Don't check the cache; refresh it from source.
         repo.freshen()
+        ref = repo.canonical_ref(ref)
       else
+        # This will raise a RefError if the ref doesn't exist
+        begin
+          ref = repo.canonical_ref(ref)
+        rescue RefError
+          repo.freshen()
+          ref = repo.canonical_ref(ref)
+        end
+      end
+
+      type = repo.ref_type(ref)
+      safe_ref = fs_sanitize(ref)
+      repo_path = "#{@path}/ref/#{type}/#{repo.name}"
+      ref_path = "#{repo_path}/#{safe_ref}"
+
+      if ! refresh
         # Check cache first
-        ["immutable", "mutable"].each do |type|
-          ref_path = "#{@path}/#{type}/#{repo.name}/#{safe_ref}"
-          if Dir.exist? ref_path
-            return ref_path
-          end
-        end
-
-        # Special case, since branches may be refered to by name
-        safe_branch = fs_sanitize("refs/heads/#{ref}")
-        ref_path = "#{@path}/mutable/#{repo.name}/#{safe_branch}"
-        if Dir.exist? ref_path
-          return ref_path
-        end
-
-        # Special case, since tags may be refered to by name
-        safe_tag = fs_sanitize("refs/tags/#{ref}")
-        ref_path = "#{@path}/immutable/#{repo.name}/#{safe_tag}"
         if Dir.exist? ref_path
           return ref_path
         end
       end
 
-      # This will raise if the ref doesn't exist
-      begin
-        type, sha, real_ref = repo.ref_info(ref)
-      rescue
-        repo.freshen()
-        type, sha, real_ref = repo.ref_info(ref)
-      end
+      FileUtils.mkdir_p(repo_path)
 
-      repo_dir = "#{@path}/#{type}/#{repo.name}"
-      if ! Dir.exist? repo_dir
-        Dir.mkdir(repo_dir)
-      end
-
-      ref_path = "#{repo_dir}/#{safe_ref}"
-      sha_path = checkout_sha(repo, sha, options[:name])
-      if sha_path != ref_path
-        atomic_symlink(sha_path, ref_path)
+      identity_path = checkout_identity(repo, repo.ref_identity(ref))
+      if identity_path != ref_path
+        atomic_symlink(identity_path, ref_path)
       end
 
       ref_path
@@ -138,9 +120,8 @@ module Armature
     end
 
     def update_branches()
-      Dir.glob("#{@path}/mutable/*/*") do |path|
-        ref = File.basename(path)
-        ### FIXME decode
+      Dir.glob("#{@path}/ref/mutable/*/*") do |path|
+        ref = fs_unsanitize(File.basename(path))
         repo = get_repo_by_name(File.basename(File.dirname(path)))
         @logger.info("Updating #{ref} ref from #{repo.url}")
 
@@ -207,34 +188,38 @@ module Armature
       ref.sub(/\A\./, "\\.").gsub(/[\\|]/, '\\\0').gsub(/\//, '|')
     end
 
-    # Assumes sha exists. Use checkout() if it might not.
-    def checkout_sha(repo, sha, name=nil)
-      safe_sha = fs_sanitize(sha)
+    def fs_unsanitize(name)
+      name.gsub(/\|/, '/').gsub(/\\([\\|])/, '\0').sub(/^\\\./, '.')
+    end
 
-      repo_path = "#{@path}/immutable/#{repo.name}"
-      sha_path = "#{repo_path}/#{safe_sha}"
-      if Dir.exist? sha_path
-        return sha_path
+    # Assumes identity exists. Use checkout() if it might not.
+    def checkout_identity(repo, identity)
+      safe_identity = fs_sanitize(identity)
+
+      repo_path = "#{@path}/identity/#{repo.name}"
+      identity_path = "#{repo_path}/#{safe_identity}"
+      if Dir.exist? identity_path
+        return identity_path
       end
 
       FileUtils.mkdir_p(repo_path)
 
-      Armature::Util::lock sha_path, File::LOCK_EX, "checkout" do
+      Armature::Util::lock identity_path, File::LOCK_EX, "checkout" do
         # Another process may have created the object before we got the lock
-        if Dir.exist? sha_path
-          return sha_path
+        if Dir.exist? identity_path
+          return identity_path
         end
 
-        object_path = new_object_path(name)
+        object_path = new_object_path(identity)
         FileUtils.mkdir_p object_path
 
         @logger.debug(
-          "Checking out '#{sha}' from '#{repo.url}' into '#{object_path}'")
-        repo.git "reset", "--hard", sha, :work_dir=>object_path
-        atomic_symlink(object_path, sha_path)
+          "Checking out '#{identity}' from '#{repo.url}' into '#{object_path}'")
+        repo.git "reset", "--hard", identity, :work_dir=>object_path
+        atomic_symlink(object_path, identity_path)
       end
 
-      sha_path
+      identity_path
     end
 
     # Put a directory into a trash directory for off-line deletion
@@ -327,7 +312,7 @@ module Armature
     def garbage_collect_refs(referenced_paths)
       # Must be run from garbage_collect, since that handles the lock as well
       # as emptying the trash
-      all_references = Set.new(Dir.glob("#{@path}/{im,}mutable/*/*"))
+      all_references = Set.new(Dir.glob("#{@path}/ref/*/*/*"))
       difference = all_references - referenced_paths
       @logger.info(
         "Deleting #{difference.size} of #{all_references.size} references")
@@ -357,7 +342,7 @@ module Armature
       all_repos = Set.new(all_repos.map { |path| File.basename(path) })
       used_repos = Set.new()
 
-      referenced_repos = Dir.glob("#{@path}/{im,}mutable/*")
+      referenced_repos = Dir.glob("#{@path}/ref/*/*")
       referenced_repos.each do |path|
         # No refs within the repo in use (for this ref type)
         if Dir.glob("#{path}/*").empty?

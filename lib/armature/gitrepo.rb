@@ -62,43 +62,78 @@ module Armature
 
       lines.map do |line|
         sha, ref = line.split(' ', 2)
-        @ref_cache[ref] = [:mutable, sha, ref]
-        # Strip refs/heads/ from the beginning of each ref
-        ref["refs/heads/".length .. -1]
+        name = ref.sub("refs/heads/", "")
+        @ref_cache[ref] = [:mutable, sha, ref, "branch", name]
+        name
       end
     end
 
-    # Get the type of a ref (:branch, :tag, or :sha) and its sha as [type, sha]
+    def ref_type(ref)
+      ref_info(ref)[0]
+    end
+
+    def ref_identity(ref)
+      ref_info(ref)[1]
+    end
+
+    def canonical_ref(ref)
+      ref_info(ref)[2]
+    end
+
+    def ref_human_name(ref)
+      info = ref_info(ref)
+
+      "#{info[3]} '#{info[4]}'"
+    end
+
+  private
+
+    # Get information about ref, checking the cache first
     def ref_info(ref)
-      if result = check_cache(ref)
-        result
+      if ! @ref_cache[ref]
+        freshen_ref_cache(ref)
+      end
+
+      @ref_cache[ref]
+    end
+
+    # Get information about a ref and put it in the cache
+    def freshen_ref_cache(ref)
+      if ref.start_with? "refs/heads/"
+        @ref_cache[ref] = [:mutable, rev_parse!(ref), ref, "branch", ref.sub("refs/heads/", "")]
+      elsif ref.start_with? "refs/tags/"
+        @ref_cache[ref] = [:immutable, rev_parse!(ref), ref, "tag", ref.sub("refs/tags/", "")]
+      elsif ref.start_with? "refs/"
+        @ref_cache[ref] = [:mutable, rev_parse!(ref), ref, "ref", ref]
       elsif sha = rev_parse("refs/heads/#{ref}")
-        @ref_cache["refs/heads/#{ref}"] = [:mutable, sha, "refs/heads/#{ref}"]
+        @ref_cache["refs/heads/#{ref}"] = [:mutable, sha, "refs/heads/#{ref}", "branch", ref]
+        @ref_cache[ref] = @ref_cache["refs/heads/#{ref}"]
       elsif sha = rev_parse("refs/tags/#{ref}")
-        @ref_cache["refs/tags/#{ref}"] = [:immutable, sha, "refs/tags/#{ref}"]
+        @ref_cache["refs/tags/#{ref}"] = [:immutable, sha, "refs/tags/#{ref}", "tag", ref]
+        @ref_cache[ref] = @ref_cache["refs/tags/#{ref}"]
       elsif sha = rev_parse(ref)
         if sha == ref
-          @ref_cache[ref] = [:immutable, sha, ref]
+          @ref_cache[ref] = [:identity, sha, ref, "revision", ref]
         else
-          @ref_cache[ref] = [:mutable, sha, ref]
+          @ref_cache[ref] = [:mutable, sha, ref, "ref", ref]
         end
       else
         raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
       end
     end
 
-  private
-    def check_cache(ref)
-      @ref_cache[ref] \
-      || @ref_cache["refs/heads/#{ref}"] \
-      || @ref_cache["refs/tags/#{ref}"]
-    end
-
     # Get the sha for a ref, or nil if it doesn't exist
     def rev_parse(ref)
+      rev_parse!(ref)
+    rescue RefError
+      nil
+    end
+
+    # Get the sha for a ref, or raise if it doesn't exist
+    def rev_parse!(ref)
       git("rev-parse", "--verify", "#{ref}^{commit}").chomp
     rescue Armature::Run::CommandFailureError
-      nil
+      raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
     end
   end
 end

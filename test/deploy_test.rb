@@ -177,7 +177,7 @@ class DeployTest < Minitest::Test
     end
   end
 
-  def test_redeploying_module_with_tag
+  def test_redeploying_module_with_ref_tag
     with_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("ref", "tag_one") do
@@ -187,10 +187,41 @@ class DeployTest < Minitest::Test
     end
   end
 
-  def test_redeploying_module_with_branch
+  def test_redeploying_module_with_ref_branch
     with_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("ref", "branch_two") do
+        assert_module_manifests("interesting", ["one.pp", "two.pp", "two_a.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
+  def test_redeploying_module_with_ref_commit
+    with_context do
+      set_up_interesting_module("interesting")
+      sha = repo_git("interesting", "rev-parse", "branch_two^").chomp
+      redeploy_module_with_ref_of_type("ref", sha) do
+        assert_module_manifests("interesting", ["one.pp", "two.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
+  def test_redeploying_module_with_tag
+    with_context do
+      set_up_interesting_module("interesting")
+      redeploy_module_with_ref_of_type("tag", "tag_one") do
+        assert_module_manifests("interesting", ["one.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
+  def test_redeploying_module_with_branch
+    with_context do
+      set_up_interesting_module("interesting")
+      redeploy_module_with_ref_of_type("branch", "branch_two") do
         assert_module_manifests("interesting", ["one.pp", "two.pp", "two_a.pp"],
           "Incorrect module version after redeploy")
       end
@@ -201,7 +232,7 @@ class DeployTest < Minitest::Test
     with_context do
       set_up_interesting_module("interesting")
       sha = repo_git("interesting", "rev-parse", "branch_two^").chomp
-      redeploy_module_with_ref_of_type("ref", sha) do
+      redeploy_module_with_ref_of_type("commit", sha) do
         assert_module_manifests("interesting", ["one.pp", "two.pp"],
           "Incorrect module version after redeploy")
       end

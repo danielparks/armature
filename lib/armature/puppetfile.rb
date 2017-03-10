@@ -22,10 +22,50 @@ module Armature
         raise "Module #{name} declared twice"
       end
 
-      @results[name] = Armature::Util.process_options(options, {}, {
+      options = Armature::Util.process_options(options, {
+        :commit => nil,
+        :tag => nil,
+        :branch => nil,
+        :ref => nil,
+      }, {
         :git => nil,
-        :ref => "master",
       })
+
+      ref = nil
+
+      if options[:commit]
+        if ref
+          raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
+        end
+        ref = options[:commit]
+      end
+
+      if options[:tag]
+        if ref
+          raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
+        end
+        ref = "refs/tags/#{options[:tag]}"
+      end
+
+      if options[:branch]
+        if ref
+          raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
+        end
+        ref = "refs/heads/#{options[:branch]}"
+      end
+
+      if options[:ref]
+        if ref
+          raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
+        end
+        ref = options[:ref]
+      end
+
+      if ! ref
+        ref = "refs/heads/master"
+      end
+
+      @results[name] = { :name => name, :ref => ref, :git => options[:git] }
     end
 
     def forge(*arguments)

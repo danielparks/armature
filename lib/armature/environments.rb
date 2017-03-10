@@ -39,7 +39,7 @@ module Armature
           " environment '#{name}'"
 
         begin
-          ref_path = @cache.checkout(repo, ref, :name=>ref, :refresh=>true)
+          ref_path = @cache.checkout(repo, ref, true)
         rescue RefError
           @logger.info "Ref '#{ref}' does not exist; ensuring environment" \
             " '#{name}' is gone"
@@ -82,10 +82,7 @@ module Armature
           raise "Module name may not contain /: '#{name}'"
         end
 
-        ref_path = @cache.checkout(
-          @cache.get_repo(info[:git]),
-          info[:ref],
-          :name=>"#{name}.#{info[:ref]}")
+        ref_path = @cache.checkout(@cache.get_repo(info[:git]), info[:ref])
 
         @cache.atomic_symlink(ref_path, "#{modules_path}/#{name}")
       end
