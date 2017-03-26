@@ -6,6 +6,7 @@ module Armature
   class Cache
     def initialize(path)
       FileUtils.mkdir_p(path)
+      @lock_file = nil
       @path = File.realpath(path)
       @repos = {}
       @process_prefix = "#{Time.now.to_i}.#{Process.pid}"
