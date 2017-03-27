@@ -19,15 +19,20 @@ module Armature
 
     def freshen
       if ! @fetched
-        @logger.info("Fetching from #{url}")
-        Armature::Util::lock @git_dir, File::LOCK_EX, "fetch" do
-          git "remote", "update", "--prune"
-        end
-        @fetched = true
+        freshen!
         true
       else
         false
       end
+    end
+
+    def freshen!
+      @logger.info("Fetching from #{url}")
+      Armature::Util::lock @git_dir, File::LOCK_EX, "fetch" do
+        git "remote", "update", "--prune"
+      end
+      @ref_cache = {}
+      @fetched = true
     end
 
     def git(*arguments)

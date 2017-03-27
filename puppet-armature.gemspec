@@ -17,4 +17,5 @@ spec = Gem::Specification.new do |s|
   s.executables << 'armature'
   s.add_runtime_dependency('gli','2.14.0')
   s.add_runtime_dependency('logging','~> 2')
+  s.add_development_dependency('minitest','~> 5.9')
 end

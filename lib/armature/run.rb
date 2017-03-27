@@ -26,11 +26,11 @@ module Armature::Run
     command.shelljoin
   end
 
-  def command(*command)
+  def command(environment={}, *command)
     logger = Logging.logger[self]
 
     logger.debug(command_to_string(*command))
-    out, status = Open3.capture2e(*command)
+    out, status = Open3.capture2e(environment, *command)
     logger.debug(command_to_string(command.first) + ": #{status}")
 
     if ! status.success?
@@ -38,5 +38,16 @@ module Armature::Run
     end
 
     out
+  end
+
+  def clean_git(*command)
+    # Disable general configuration files
+    environment = {
+      "HOME" => "",
+      "XDG_CONFIG_HOME" => "",
+      "GIT_CONFIG_NOSYSTEM" => "1",
+    }
+
+    command(environment, "git", *command)
   end
 end
