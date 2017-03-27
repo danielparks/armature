@@ -18,6 +18,13 @@ module Armature
       end
     end
 
+    def flush_memory!
+      @logger.debug("Flushing in-memory caches for all repos")
+      @repos.each do |name, repo|
+        repo.freshen!
+      end
+    end
+
     # Get GitRepo object for a local clone of a remote repo at a URL
     #
     # This will clone the repo if it doesn't already exist.
