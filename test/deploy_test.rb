@@ -176,4 +176,65 @@ class DeployTest < Minitest::Test
         "Modules installed after test incorrect")
     end
   end
+
+  def test_redeploying_module_with_tag
+    with_context do
+      set_up_interesting_module("interesting")
+      redeploy_module_with_ref_of_type("ref", "tag_one") do
+        assert_module_manifests("interesting", ["one.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
+  def test_redeploying_module_with_branch
+    with_context do
+      set_up_interesting_module("interesting")
+      redeploy_module_with_ref_of_type("ref", "branch_two") do
+        assert_module_manifests("interesting", ["one.pp", "two.pp", "two_a.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
+  def test_redeploying_module_with_commit
+    with_context do
+      set_up_interesting_module("interesting")
+      sha = repo_git("interesting", "rev-parse", "branch_two^").chomp
+      redeploy_module_with_ref_of_type("ref", sha) do
+        assert_module_manifests("interesting", ["one.pp", "two.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
+private
+
+  # The "interesting" repo must be created first so it can be queried for shas
+  def redeploy_module_with_ref_of_type(ref_type, ref)
+    repo = @cache.get_repo(repo_path("control"))
+
+    repo_puppetfile_update("control", <<-MODULES)
+      mod "interesting", :git=>"#{repo_path('interesting')}"
+    MODULES
+
+    @environments.checkout_ref(repo, "master")
+
+    assert_module_manifests("interesting", ["one.pp", "two.pp", "three.pp"],
+      "Incorrect module version after initial deploy")
+
+    repo_commit("control", "Add interesting module") do
+      File.write("Puppetfile", <<-PUPPETFILE)
+        forge "https://forge.puppet.com"
+
+        mod "interesting", :git=>"#{repo_path('interesting')}",
+          :#{ref_type}=>"#{ref}"
+      PUPPETFILE
+    end
+
+    @cache.flush_memory!
+    @environments.checkout_ref(repo, "master")
+
+    yield
+  end
 end

@@ -33,6 +33,44 @@ module ArmatureTestHelpers
     end
   end
 
+  def repo_git(name, *command)
+    Dir.chdir(repo_path(name)) do
+      Armature::Run.clean_git(*command)
+    end
+  end
+
+  def repo_puppetfile_update(name, modules)
+    repo_commit(name, "Update Puppetfile") do
+      File.write("Puppetfile", <<-PUPPETFILE)
+        forge "https://forge.puppet.com"
+
+        #{modules}
+      PUPPETFILE
+    end
+  end
+
+  def add_module_class(module_name, class_name)
+    repo_commit(module_name, "Add #{class_name}.pp") do
+      File.write("manifests/#{class_name}.pp", <<-MANIFEST)
+        class module1::#{class_name} {
+          notify { "in #{module_name}::#{class_name}": }
+        }
+      MANIFEST
+    end
+  end
+
+  def set_up_interesting_module(module_name)
+    repo_init(module_name)
+
+    add_module_class(module_name, "one")
+    repo_git(module_name, "tag", "tag_one")
+    add_module_class(module_name, "two")
+    repo_git(module_name, "checkout", "-b", "branch_two")
+    add_module_class(module_name, "two_a")
+    repo_git(module_name, "checkout", "master")
+    add_module_class(module_name, "three")
+  end
+
   def set_up_context
     @context_path = Dir.mktmpdir("armature.test_context.")
     @cache = Armature::Cache.new(@context_path + "/cache")
@@ -79,5 +117,14 @@ module ArmatureTestHelpers
     end
 
     assert(environment_file_contains?(path, search), message)
+  end
+
+  def assert_module_manifests(module_name, manifest_names=["init.pp"],
+      message="Incorrect manifests in module '#{module_name}'",
+      environment="master")
+    assert_equal(
+      ([".", "..", ".keep"] + manifest_names).sort(),
+      Dir.entries(@environments.path + "/#{environment}/modules/#{module_name}/manifests"),
+      message)
   end
 end
