@@ -104,4 +104,24 @@ class DeployTest < Minitest::Test
         "# Armature test repo: module-2")
     end
   end
+
+  def test_removing_module_and_redeploying
+    with_context do
+      repo = @cache.get_repo(repo_path("control"))
+      @environments.checkout_ref(repo, "master")
+
+      repo_commit("control", "Remove module-1") do
+        File.write("Puppetfile", <<-PUPPETFILE)
+          forge "https://forge.puppet.com"
+        PUPPETFILE
+      end
+
+      @cache.flush_memory!
+      @environments.checkout_ref(repo, "master")
+      assert_equal(
+        [".", ".."],
+        Dir.entries(@environments.path + "/master/modules"),
+        "Modules installed after test incorrect")
+    end
+  end
 end
