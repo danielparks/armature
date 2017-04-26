@@ -208,6 +208,41 @@ class DeployTest < Minitest::Test
     end
   end
 
+  def test_redeploying_module_with_updated_branch
+    with_context do
+      set_up_interesting_module("interesting")
+      redeploy_module_with_ref_of_type("ref", "branch_two") do
+        repo_git("interesting", "checkout", "branch_two")
+        add_module_class("interesting", "two_b")
+
+        @cache.flush_memory!
+        @environments.checkout_ref(@cache.get_repo(repo_path("control")), "master")
+
+        skip("checkout_ref doesn't update branches at the moment")
+        assert_module_manifests("interesting",
+          ["one.pp", "two.pp", "two_a.pp", "two_b.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
+  def test_updating_branches_on_module_with_updated_branch
+    with_context do
+      set_up_interesting_module("interesting")
+      redeploy_module_with_ref_of_type("ref", "branch_two") do
+        repo_git("interesting", "checkout", "branch_two")
+        add_module_class("interesting", "two_b")
+
+        @cache.flush_memory!
+        @cache.update_branches()
+
+        assert_module_manifests("interesting",
+          ["one.pp", "two.pp", "two_a.pp", "two_b.pp"],
+          "Incorrect module version after redeploy")
+      end
+    end
+  end
+
 private
 
   # The "interesting" repo must be created first so it can be queried for shas
