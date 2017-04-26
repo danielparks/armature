@@ -124,4 +124,56 @@ class DeployTest < Minitest::Test
         "Modules installed after test incorrect")
     end
   end
+
+  def test_module_with_bad_ref
+    with_context do
+      repo = @cache.get_repo(repo_path("control"))
+      repo_commit("control", "Set module-1 to bad ref") do
+        File.write("Puppetfile", <<-PUPPETFILE)
+          forge "https://forge.puppet.com"
+
+          mod "module1", :git=>"#{repo_path('module-1')}", :ref=>"bad"
+        PUPPETFILE
+      end
+
+      assert_raises(Armature::RefError) do
+        @environments.checkout_ref(repo, "master")
+      end
+
+      ### FIXME state of repo after an error is undefined, but this behavior
+      ### seems reasonable.
+      assert_equal(
+        [".", ".."],
+        Dir.entries(@environments.path),
+        "Modules installed after test incorrect")
+    end
+  end
+
+  def test_redeploying_module_with_bad_ref
+    with_context do
+      repo = @cache.get_repo(repo_path("control"))
+      @environments.checkout_ref(repo, "master")
+
+      repo_commit("control", "Set module-1 to bad ref") do
+        File.write("Puppetfile", <<-PUPPETFILE)
+          forge "https://forge.puppet.com"
+
+          mod "module1", :git=>"#{repo_path('module-1')}", :ref=>"bad"
+        PUPPETFILE
+      end
+
+      @cache.flush_memory!
+      assert_raises(Armature::RefError) do
+        @environments.checkout_ref(repo, "master")
+      end
+
+      ### FIXME state of repo after an error is undefined
+      ### What happens if other modules already exist?
+      skip()
+      assert_equal(
+        [".", "..", "module1"],
+        Dir.entries(@environments.path + "/master/modules"),
+        "Modules installed after test incorrect")
+    end
+  end
 end
