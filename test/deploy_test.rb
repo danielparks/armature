@@ -68,7 +68,7 @@ class DeployTest < Minitest::Test
     tear_down_context
   end
 
-  def test_deploy_master
+  def test_deploy_just_master_branch
     with_context do
       repo = @cache.get_repo(repo_path("control"))
       branches = Set.new(repo.get_branches())
@@ -88,7 +88,7 @@ class DeployTest < Minitest::Test
   end
 
   ### FIXME: should this generate an error?
-  def test_deploy_nonexistant
+  def test_deploy_nonexistant_branch
     with_context do
       repo = @cache.get_repo(repo_path("control"))
       branches = Set.new(repo.get_branches())
@@ -103,7 +103,7 @@ class DeployTest < Minitest::Test
     end
   end
 
-  def test_deploy_all
+  def test_deploy_all_branches
     with_context do
       repo = @cache.get_repo(repo_path("control"))
       branches = Set.new(repo.get_branches())
@@ -127,7 +127,7 @@ class DeployTest < Minitest::Test
     end
   end
 
-  def test_module
+  def test_deploy_one_module
     with_context do
       repo = @cache.get_repo(repo_path("control"))
       @environments.checkout_ref(repo, "master")
@@ -153,7 +153,7 @@ class DeployTest < Minitest::Test
     assert(environment_file_contains?(path, search), message)
   end
 
-  def test_module_add
+  def test_adding_module_and_redeploying
     with_context do
       repo = @cache.get_repo(repo_path("control"))
       @environments.checkout_ref(repo, "master")
