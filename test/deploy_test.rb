@@ -169,7 +169,7 @@ class DeployTest < Minitest::Test
 
       ### FIXME state of repo after an error is undefined
       ### What happens if other modules already exist?
-      skip()
+      skip("state of repo after an error is undefined")
       assert_equal(
         [".", "..", "module1"],
         Dir.entries(@environments.path + "/master/modules"),
