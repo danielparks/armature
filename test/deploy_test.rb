@@ -44,8 +44,8 @@ class DeployTest < Minitest::Test
       repo = @cache.get_repo(repo_path("control"))
       branches = Set.new(repo.get_branches())
 
-      Dir.mkdir(@context_path + "/foo")
-      File.symlink(@context_path + "/foo", @environments.path + "/foo")
+      Dir.mkdir("foo")
+      File.symlink("foo", @environments.path + "/foo")
 
       assert_equal(["foo"], @environments.names(),
         "Environments before test incorrect")
@@ -136,7 +136,7 @@ class DeployTest < Minitest::Test
         PUPPETFILE
       end
 
-      assert_raises(Armature::RefError) do
+      assert_raises(Armature::GitRepo::RefError) do
         @environments.checkout_ref(repo, "master")
       end
 
@@ -163,7 +163,7 @@ class DeployTest < Minitest::Test
       end
 
       @cache.flush_memory!
-      assert_raises(Armature::RefError) do
+      assert_raises(Armature::GitRepo::RefError) do
         @environments.checkout_ref(repo, "master")
       end
 

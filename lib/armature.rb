@@ -1,3 +1,5 @@
+require "armature/error.rb"
+
 require "armature/cache.rb"
 require "armature/environments.rb"
 require "armature/gitrepo.rb"

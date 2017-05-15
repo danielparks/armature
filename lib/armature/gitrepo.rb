@@ -1,8 +1,8 @@
 module Armature
-  class RefError < StandardError
-  end
-
   class GitRepo
+    class RefError < Armature::Error
+    end
+
     attr_reader :name
 
     def initialize(git_dir, name)
@@ -118,7 +118,7 @@ module Armature
           @ref_cache[ref] = [:mutable, sha, ref, "ref", ref]
         end
       else
-        raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
+        raise RefError, "no such ref '#{ref}' in repo '#{url}'"
       end
     end
 
@@ -133,7 +133,7 @@ module Armature
     def rev_parse!(ref)
       git("rev-parse", "--verify", "#{ref}^{commit}").chomp
     rescue Armature::Run::CommandFailureError
-      raise RefError.new("no such ref '#{ref}' in repo '#{url}'")
+      raise RefError, "no such ref '#{ref}' in repo '#{url}'"
     end
   end
 end

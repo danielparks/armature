@@ -1,5 +1,21 @@
 module Armature
   class Environments
+    class InvalidNameError < Armature::Error
+    end
+
+    # https://docs.puppet.com/puppet/latest/reference/lang_reserved.html#environments
+    def self.assert_valid_environment_name(name)
+      if name !~ /\A[a-z0-9_]+\Z/
+        raise InvalidNameError, "Invalid environment name '#{name}'"
+      end
+    end
+
+    def self.assert_valid_module_name(name)
+      if name !~ /\A[a-z][a-z0-9_]*\Z/
+        raise InvalidNameError, "Invalid module name '#{name}'"
+      end
+    end
+
     attr_reader :path
 
     # path is the path to the directory containing all the environments
@@ -28,11 +44,7 @@ module Armature
     def checkout_ref(repo, ref, name=ref)
       # This will add and update a modules dir in any repo, even if the repo is
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
-
-      # https://docs.puppet.com/puppet/latest/reference/lang_reserved.html#environments
-      if name !~ /\A[a-z0-9_]+\Z/
-        raise "Invalid environment name '#{name}'"
-      end
+      self.class.assert_valid_environment_name(name)
 
       @cache.lock File::LOCK_SH do
         @logger.info "Deploying ref '#{ref}' from '#{repo.url}' as" \
@@ -40,7 +52,7 @@ module Armature
 
         begin
           ref_path = @cache.checkout(repo, ref, true)
-        rescue RefError
+        rescue Armature::GitRepo::RefError
           @logger.info "Ref '#{ref}' does not exist; ensuring environment" \
             " '#{name}' is gone"
           remove(name)
@@ -76,11 +88,7 @@ module Armature
       end
 
       module_refs.each do |name, info|
-        if name =~ /\A\./
-          raise "Module name may not start with period: '#{name}'"
-        elsif name =~ /\//
-          raise "Module name may not contain /: '#{name}'"
-        end
+        self.class.assert_valid_module_name(name)
 
         ref_path = @cache.checkout(@cache.get_repo(info[:git]), info[:ref])
 

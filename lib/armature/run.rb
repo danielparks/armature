@@ -4,7 +4,7 @@ require 'shellwords'
 module Armature::Run
   extend self
 
-  class CommandFailureError < StandardError
+  class CommandFailureError < Armature::Error
     attr_reader :status
     attr_reader :command
     attr_reader :output

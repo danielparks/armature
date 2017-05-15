@@ -12,11 +12,7 @@ module Armature
     end
 
     def mod(name, options={})
-      if name =~ /\A\./
-        raise "Module name may not start with period: '#{name}'"
-      elsif name =~ /\//
-        raise "Module name may not contain /: '#{name}'"
-      end
+      Armature::Environments.assert_valid_module_name(name)
 
       if @results[name]
         raise "Module #{name} declared twice"

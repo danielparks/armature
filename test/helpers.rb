@@ -3,8 +3,17 @@ require 'fileutils'
 require 'tmpdir'
 
 module ArmatureTestHelpers
+  def with_temp_dir(name="test")
+    work_path = Dir.mktmpdir("armature.#{name}.")
+    Dir.chdir(work_path) do
+      yield
+    end
+  ensure
+    FileUtils.rm_rf(work_path)
+  end
+
   def repo_path(name)
-    @context_path + "/repos/" + name
+    "repos/" + name
   end
 
   def repo_init(name)
@@ -71,38 +80,30 @@ module ArmatureTestHelpers
     add_module_class(module_name, "three")
   end
 
-  def set_up_context
-    @context_path = Dir.mktmpdir("armature.test_context.")
-    @cache = Armature::Cache.new(@context_path + "/cache")
+  def with_context
+    with_temp_dir("context") do
+      @cache = Armature::Cache.new("cache")
 
-    Dir.mkdir(@context_path + "/environments")
-    @environments = Armature::Environments.new(@context_path + "/environments", @cache)
+      Dir.mkdir("environments")
+      @environments = Armature::Environments.new("environments", @cache)
 
-    repo_init("module-1")
+      repo_init("module-1")
 
-    repo_init("control") do
-      File.write("Puppetfile", <<-PUPPETFILE)
-        forge "https://forge.puppet.com"
+      repo_init("control") do
+        File.write("Puppetfile", <<-PUPPETFILE)
+          forge "https://forge.puppet.com"
 
-        mod "module1", :git=>"#{repo_path('module-1')}"
-      PUPPETFILE
+          mod "module1", :git=>"#{repo_path('module-1')}"
+        PUPPETFILE
+      end
+
+      yield
     end
-  end
-
-  def tear_down_context
-    FileUtils.rm_rf(@context_path)
-
+  ensure
     # Ensure that code trying to use these after this point fails in a
     # predictable way.
-    @context_path = nil
     @cache = nil
     @environments = nil
-  end
-
-  def with_context
-    set_up_context
-    yield
-    tear_down_context
   end
 
   def environment_file_contains?(path, search)

@@ -62,10 +62,10 @@ module Armature
         repo.freshen()
         ref = repo.canonical_ref(ref)
       else
-        # This will raise a RefError if the ref doesn't exist
+        # This will raise a Armature::GitRepo::RefError if the ref doesn't exist
         begin
           ref = repo.canonical_ref(ref)
-        rescue RefError
+        rescue Armature::GitRepo::RefError
           repo.freshen()
           ref = repo.canonical_ref(ref)
         end
@@ -127,7 +127,7 @@ module Armature
 
         begin
           checkout(repo, ref, :refresh=>true)
-        rescue RefError
+        rescue Armature::GitRepo::RefError
           # The ref no longer exists, so we can't update it. Leave the old
           # checkout in place for safety; garbage collection will remove it if
           # it's no longer used.
