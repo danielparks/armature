@@ -50,12 +50,12 @@ command "deploy-ref" do |c|
     # This should fail as early as possible (e.g. if the path isn't correct)
     environments = Armature::Environments.new(@environments_path, @cache)
 
-    repo = @cache.get_repo(arguments.shift)
+    repo = Armature::GitRepo.mirror_of(@cache, arguments.shift)
     ref = arguments.shift
     name = arguments.shift
 
     begin
-      environments.checkout_ref(repo, ref, name)
+      environments.check_out_ref(repo, ref, name)
     rescue
       @logger.error("Error deploying ref '#{ref}' as '#{name}'")
       raise
@@ -75,7 +75,7 @@ command "deploy-branches" do |c|
     # This should fail as early as possible (e.g. if the path isn't correct)
     environments = Armature::Environments.new(@environments_path, @cache)
 
-    repo = @cache.get_repo(arguments.shift)
+    repo = Armature::GitRepo.mirror_of(@cache, arguments.shift)
     all_branches = repo.get_branches()
     branches = Set.new()
 
@@ -99,7 +99,7 @@ command "deploy-branches" do |c|
 
     branches.each do |branch|
       begin
-        environments.checkout_ref(repo, branch)
+        environments.check_out_ref(repo, branch)
       rescue => e
         @logger.error("Error deploying branch '#{branch}' (skipping): #{e}")
       end
@@ -114,7 +114,7 @@ end
 
 desc 'Update all branches in the cache'
 command :update do |c|
-  c.action { @cache.update_branches() }
+  c.action { @cache.update_mutable_refs() }
 end
 
 pre do |global_options, command, options, arguments|

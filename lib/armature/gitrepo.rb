@@ -1,20 +1,56 @@
 module Armature
   class GitRepo
-    class RefError < Armature::Error
+    # Gets a repo object for a given URL. Mirrors the repo in the local cache
+    # if it doesn't already exist.
+    def self.mirror_of(cache, url)
+      repo = cache.get_repo(:git, url)
+      if repo
+        return repo
+      end
+
+      fresh = false
+      _path = cache.open_repo(:git, url) do |path|
+        Logging.logger[self].debug("Cloning '#{url}' for the first time")
+
+        # Mirror copies *all* refs, not just branches. Ignore output.
+        Armature::Run.command("git", "clone", "--quiet", "--mirror", url, path)
+        fresh = true
+
+        Logging.logger[self].debug("Done cloning '#{url}'")
+      end
+
+      return self.new(cache, _path, fresh, url)
     end
 
-    attr_reader :name
-
-    def initialize(git_dir, name)
+    def initialize(cache, git_dir, is_fresh=false, url=nil)
+      @cache = cache
       @git_dir = git_dir
-      @name = name
-      @fetched = false
+      @url = url
       @logger = Logging.logger[self]
-      @ref_cache = {}
+
+      flush_memory! # Set up memory caches
+      @fetched = is_fresh
+      @cache.register_repo(self)
+    end
+
+    def type
+      :git
     end
 
     def url
       @url ||= git("config", "--get", "remote.origin.url").chomp()
+    end
+
+    def to_s
+      url
+    end
+
+    # Check out a ref from a repo and return the path
+    def check_out(ref)
+      @logger.debug("Checking out #{ref} from #{self}")
+      @cache.open_ref(ref) do |object_path|
+        git "reset", "--hard", ref.identity, :work_dir=>object_path
+      end
     end
 
     def freshen
@@ -27,12 +63,112 @@ module Armature
     end
 
     def freshen!
+      flush_memory!
+
       @logger.info("Fetching from #{url}")
-      Armature::Util::lock @git_dir, File::LOCK_EX, "fetch" do
+      Armature::Util::lock(@git_dir, File::LOCK_EX, "fetch") do
+        ### FIXME Only flush memory if this makes changes
         git "remote", "update", "--prune"
       end
-      @ref_cache = {}
       @fetched = true
+    end
+
+    def flush_memory!
+      @fetched = false
+      @ref_cache = {}
+      @rev_cache = {}
+    end
+
+    # Get ref object
+    def general_ref(ref_str)
+      return @ref_cache[ref_str] if @ref_cache[ref_str]
+
+      if ref_str.start_with? "refs/heads/"
+        return branch_ref(ref_str.sub("refs/heads/", ""))
+      end
+
+      if ref_str.start_with? "refs/tags/"
+        return tag_ref(ref_str.sub("refs/tags/", ""))
+      end
+
+      retry_fresh do
+        if ref_str.start_with? "refs/"
+          freshen()
+          return make_ref(Armature::Ref::Mutable, ref_str, rev_parse!(ref_str),
+            "ref", ref_str)
+        end
+
+        if sha = rev_parse("refs/heads/#{ref_str}")
+          return branch_ref(ref_str)
+        end
+
+        if sha = rev_parse("refs/tags/#{ref_str}")
+          return tag_ref(ref_str)
+        end
+
+        # This could trigger a retry
+        sha = rev_parse!(ref_str)
+        if sha == ref_str
+          return identity_ref(sha)
+        end
+
+        # It exists, but it's outside of refs/. Treat it as mutable.
+        make_ref(Armature::Ref::Mutable, ref_str, sha, "ref", ref_str)
+      end
+    end
+
+    # Get ref object for some sort of mutable ref we found in the FS cache
+    def mutable_fs_ref(ref_str)
+      freshen()
+
+      return @ref_cache[ref_str] if @ref_cache[ref_str]
+
+      if ref_str.start_with? "refs/heads/"
+        return branch_ref(ref_str.sub("refs/heads/", ""))
+      end
+
+      if ref_str.start_with? "refs/tags/"
+        return tag_ref(ref_str.sub("refs/tags/", ""))
+      end
+
+      make_ref(Armature::Ref::Mutable, ref_str, rev_parse!(ref_str), "ref", ref_str)
+    end
+
+    # The identity of an object itself, i.e. a SHA
+    def identity_ref(sha)
+      return @ref_cache[sha] if @ref_cache[sha]
+
+      retry_fresh do
+        if sha != rev_parse!(sha)
+          raise RefError, "'#{ref_str}' is not a Git SHA"
+        end
+      end
+
+      make_ref(Armature::Ref::Identity, sha, sha, "revision", sha)
+    end
+
+    def branch_ref(name)
+      ref_str = "refs/heads/#{name}"
+      freshen()
+
+      return @ref_cache[ref_str] if @ref_cache[ref_str]
+
+      sha = rev_parse!(ref_str)
+      _branch_ref(ref_str, name, sha)
+    end
+
+    def _branch_ref(ref_str, name, sha)
+      make_ref(Armature::Ref::Mutable, ref_str, sha, "branch", name)
+      @ref_cache[name] = @ref_cache[ref_str]
+    end
+
+    def tag_ref(name)
+      ref_str = "refs/tags/#{name}"
+      return @ref_cache[ref_str] if @ref_cache[ref_str]
+
+      sha = retry_fresh { rev_parse!(ref_str) }
+      make_ref(Armature::Ref::Immutable, ref_str, sha, "tag", name)
+      @ref_cache[name] = @ref_cache[ref_str]
     end
 
     def git(*arguments)
@@ -56,84 +192,52 @@ module Armature
     def get_branches()
       freshen()
       data = git("for-each-ref",
-          "--format", "%(objectname) %(refname)",
-          "refs/heads")
+        "--format", "%(objectname) %(refname)",
+        "refs/heads")
       lines = data.split(/[\r\n]/).reject { |line| line == "" }
 
       lines.map do |line|
-        sha, ref = line.split(' ', 2)
-        name = ref.sub("refs/heads/", "")
-        @ref_cache[ref] = [:mutable, sha, ref, "branch", name]
+        sha, ref_str = line.split(' ', 2)
+        name = ref_str.sub("refs/heads/", "")
+        _branch_ref(ref_str, name, sha)
         name
       end
     end
 
-    def ref_type(ref)
-      ref_info(ref)[0]
-    end
-
-    def ref_identity(ref)
-      ref_info(ref)[1]
-    end
-
-    def canonical_ref(ref)
-      ref_info(ref)[2]
-    end
-
-    def ref_human_name(ref)
-      info = ref_info(ref)
-
-      "#{info[3]} '#{info[4]}'"
-    end
-
   private
 
-    # Get information about ref, checking the cache first
-    def ref_info(ref)
-      if ! @ref_cache[ref]
-        freshen_ref_cache(ref)
+    def retry_fresh
+      yield
+    rescue Armature::RefError
+      if @fetched
+        raise
       end
 
-      @ref_cache[ref]
+      @logger.debug("Got ref error; fetching to see if that helps.")
+      freshen()
+      yield
     end
 
-    # Get information about a ref and put it in the cache
-    def freshen_ref_cache(ref)
-      if ref.start_with? "refs/heads/"
-        @ref_cache[ref] = [:mutable, rev_parse!(ref), ref, "branch", ref.sub("refs/heads/", "")]
-      elsif ref.start_with? "refs/tags/"
-        @ref_cache[ref] = [:immutable, rev_parse!(ref), ref, "tag", ref.sub("refs/tags/", "")]
-      elsif ref.start_with? "refs/"
-        @ref_cache[ref] = [:mutable, rev_parse!(ref), ref, "ref", ref]
-      elsif sha = rev_parse("refs/heads/#{ref}")
-        @ref_cache["refs/heads/#{ref}"] = [:mutable, sha, "refs/heads/#{ref}", "branch", ref]
-        @ref_cache[ref] = @ref_cache["refs/heads/#{ref}"]
-      elsif sha = rev_parse("refs/tags/#{ref}")
-        @ref_cache["refs/tags/#{ref}"] = [:immutable, sha, "refs/tags/#{ref}", "tag", ref]
-        @ref_cache[ref] = @ref_cache["refs/tags/#{ref}"]
-      elsif sha = rev_parse(ref)
-        if sha == ref
-          @ref_cache[ref] = [:identity, sha, ref, "revision", ref]
-        else
-          @ref_cache[ref] = [:mutable, sha, ref, "ref", ref]
-        end
-      else
-        raise RefError, "no such ref '#{ref}' in repo '#{url}'"
-      end
+    def make_ref(klass, ref_str, sha, type, name)
+      @ref_cache[ref_str] = klass.new(self, ref_str, sha, type, name)
     end
 
-    # Get the sha for a ref, or nil if it doesn't exist
-    def rev_parse(ref)
-      rev_parse!(ref)
+    # Get the SHA for a ref, or nil if it doesn't exist
+    def rev_parse(ref_str)
+      rev_parse!(ref_str)
     rescue RefError
       nil
     end
 
-    # Get the sha for a ref, or raise if it doesn't exist
-    def rev_parse!(ref)
-      git("rev-parse", "--verify", "#{ref}^{commit}").chomp
+    # Get the SHA for a ref, or raise if it doesn't exist
+    def rev_parse!(ref_str)
+      if @rev_cache[ref_str]
+        @rev_cache[ref_str]
+      end
+
+      @rev_cache[ref_str] = git("rev-parse", "--verify", "#{ref_str}^{commit}").chomp
     rescue Armature::Run::CommandFailureError
-      raise RefError, "no such ref '#{ref}' in repo '#{url}'"
+      raise RefError, "no such ref '#{ref_str}' in repo '#{self}'"
     end
   end
 end

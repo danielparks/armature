@@ -123,9 +123,10 @@ module ArmatureTestHelpers
   def assert_module_manifests(module_name, manifest_names=["init.pp"],
       message="Incorrect manifests in module '#{module_name}'",
       environment="master")
+    module_path = "#{@environments.path}/#{environment}/modules/#{module_name}"
     assert_equal(
       ([".", "..", ".keep"] + manifest_names).sort(),
-      Dir.entries(@environments.path + "/#{environment}/modules/#{module_name}/manifests"),
+      Dir.entries("#{module_path}/manifests").sort(),
       message)
   end
 end
