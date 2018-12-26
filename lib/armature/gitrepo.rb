@@ -13,7 +13,7 @@ module Armature
         Logging.logger[self].debug("Cloning '#{url}' for the first time")
 
         # Mirror copies *all* refs, not just branches. Ignore output.
-        Armature::Run.command("git", "clone", "--quiet", "--mirror", url, path)
+        Armature::Run.clean_git("clone", "--quiet", "--mirror", url, path)
         fresh = true
 
         Logging.logger[self].debug("Done cloning '#{url}'")
@@ -182,11 +182,11 @@ module Armature
         work_dir_arguments = []
       end
 
-      command = [ "git", "--git-dir=" + @git_dir ] \
+      command = [ "--git-dir=#{@git_dir}" ] \
         + work_dir_arguments \
         + arguments
 
-      Armature::Run.command(*command)
+      Armature::Run.clean_git(*command)
     end
 
     def get_branches()
