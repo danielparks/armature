@@ -195,7 +195,7 @@ module Armature
     def open_identity(repo, identity)
       safe_identity = fs_sanitize(identity)
 
-      repo_path = "#{@path}/identity/#{fs_repo_id(repo)}"
+      repo_path = "#{@path}/ref/identity/#{fs_repo_id(repo)}"
       identity_path = "#{repo_path}/#{safe_identity}"
       if Dir.exist? identity_path
         return identity_path
