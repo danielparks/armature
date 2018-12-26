@@ -11,7 +11,8 @@ module Armature
       @results
     end
 
-    def mod(name, options={})
+    def mod(full_name, options={})
+      name = full_name.split("-", 2).last()
       Armature::Environments.assert_valid_module_name(name)
 
       if @results[name]
