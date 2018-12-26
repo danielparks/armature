@@ -108,7 +108,7 @@ module Armature
 
         # This could trigger a retry
         sha = rev_parse!(ref_str)
-        if sha == ref_str
+        if sha_match? sha, ref_str
           return identity_ref(sha)
         end
 
@@ -138,13 +138,19 @@ module Armature
     def identity_ref(sha)
       return @ref_cache[sha] if @ref_cache[sha]
 
+      real_sha = nil # needs to be bound to this scope
       retry_fresh do
-        if sha != rev_parse!(sha)
-          raise RefError, "'#{ref_str}' is not a Git SHA"
+        # real_sha will always be a full SHA, but sha might be partial
+        real_sha = rev_parse!(sha)
+        if ! sha_match? real_sha, sha
+          raise RefError, "'#{sha}' is not a Git SHA"
         end
       end
 
-      make_ref(Armature::Ref::Identity, sha, sha, "revision", sha)
+      make_ref(Armature::Ref::Identity, real_sha, real_sha, "revision", real_sha)
+
+      # If sha is partial, register it in the cache too.
+      @ref_cache[sha] = @ref_cache[real_sha]
     end
 
     def branch_ref(name)
@@ -238,6 +244,11 @@ module Armature
       @rev_cache[ref_str] = git("rev-parse", "--verify", "#{ref_str}^{commit}").chomp
     rescue Armature::Run::CommandFailureError
       raise RefError, "no such ref '#{ref_str}' in repo '#{self}'"
+    end
+
+    # Check if a real (full) SHA matches a (possibly partial) candidate SHA
+    def sha_match? real, candidate
+      real.start_with? candidate
     end
   end
 end
