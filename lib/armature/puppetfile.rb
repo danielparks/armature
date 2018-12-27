@@ -2,10 +2,13 @@ module Armature
   class Puppetfile
     attr_reader :results
 
-    def initialize()
+    def initialize(cache)
+      @cache = cache
       @results = {}
+      @logger = Logging.logger[self]
     end
 
+    ### FIXME this will have access to @cache and @results
     def include(path)
       instance_eval(IO.read(path), path)
       @results
@@ -28,41 +31,44 @@ module Armature
         :git => nil,
       })
 
+      repo = GitRepo.mirror_of(@cache, options[:git])
+
       ref = nil
 
       if options[:commit]
         if ref
           raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
         end
-        ref = options[:commit]
+        ref = repo.identity_ref(options[:commit])
       end
 
       if options[:tag]
         if ref
           raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
         end
-        ref = "refs/tags/#{options[:tag]}"
+        ref = repo.tag_ref(options[:tag])
       end
 
       if options[:branch]
         if ref
           raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
         end
-        ref = "refs/heads/#{options[:branch]}"
+        ref = repo.branch_ref(options[:branch])
       end
 
       if options[:ref]
         if ref
           raise "Module #{name} has more than one of :commit, :tag, :branch, or :ref"
         end
-        ref = options[:ref]
+        ref = repo.general_ref(options[:ref])
       end
 
       if ! ref
-        ref = "refs/heads/master"
+        ref = repo.branch_ref("master")
       end
 
-      @results[name] = { :name => name, :ref => ref, :git => options[:git] }
+      @logger.debug("mod #{name}: #{ref}")
+      @results[name] = { :name => name, :ref => ref }
     end
 
     def forge(*arguments)

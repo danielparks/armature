@@ -41,19 +41,19 @@ module Armature
       @logger.debug "Environment '#{name}' does not exist"
     end
 
-    def checkout_ref(repo, ref, name=ref)
+    def check_out_ref(repo, ref_str, name=ref_str)
       # This will add and update a modules dir in any repo, even if the repo is
       # used in a Puppetfile. (Perhaps the cache is used for multiple repos?)
       self.class.assert_valid_environment_name(name)
 
       @cache.lock File::LOCK_SH do
-        @logger.info "Deploying ref '#{ref}' from '#{repo.url}' as" \
+        @logger.info "Deploying ref '#{ref_str}' from '#{repo}' as" \
           " environment '#{name}'"
 
         begin
-          ref_path = @cache.checkout(repo, ref, true)
-        rescue Armature::GitRepo::RefError
-          @logger.info "Ref '#{ref}' does not exist; ensuring environment" \
+          ref_path = repo.general_ref(ref_str).check_out()
+        rescue Armature::RefError
+          @logger.info "Ref '#{ref_str}' does not exist; ensuring environment" \
             " '#{name}' is gone"
           remove(name)
           return
@@ -62,7 +62,7 @@ module Armature
         puppetfile_path = "#{ref_path}/Puppetfile"
         if File.exist?(puppetfile_path)
           @logger.debug "Found Puppetfile in environment '#{name}'"
-          module_refs = Armature::Puppetfile.new().include(puppetfile_path)
+          module_refs = Armature::Puppetfile.new(@cache).include(puppetfile_path)
           @logger.debug "Loaded Puppetfile in environment '#{name}' with" \
             " #{module_refs.length} modules"
         else
@@ -72,8 +72,9 @@ module Armature
 
         update_modules(ref_path, module_refs)
 
+        # Make the change live
         @cache.atomic_symlink(ref_path, "#{@path}/#{name}")
-        @logger.debug "Done deploying ref '#{ref}' from '#{repo.url}' as" \
+        @logger.debug "Done deploying ref '#{ref_str}' from '#{repo}' as" \
           " environment '#{name}'"
       end
     end
@@ -81,6 +82,8 @@ module Armature
   private
 
     # Apply the results of the Puppetfile to a ref (e.g. an environment)
+    #
+    ### FIXME This could update modules in an existing check out.
     def update_modules(target_path, module_refs)
       modules_path = "#{target_path}/modules"
       if ! Dir.exist? modules_path
@@ -90,8 +93,7 @@ module Armature
       module_refs.each do |name, info|
         self.class.assert_valid_module_name(name)
 
-        ref_path = @cache.checkout(@cache.get_repo(info[:git]), info[:ref])
-
+        ref_path = info[:ref].check_out()
         @cache.atomic_symlink(ref_path, "#{modules_path}/#{name}")
       end
 

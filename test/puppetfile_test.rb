@@ -13,7 +13,7 @@ class PuppetfileTest < Minitest::Test
   def test_one_module
     with_temp_dir("puppetfile") do
       results = parse_puppetfile(<<-PUPPETFILE)
-        mod "interesting", :git=>"foo"
+        mod "interesting", :git=>"#{repo_path("foo")}"
       PUPPETFILE
 
       assert_equal(["interesting"], results.keys(),
@@ -25,7 +25,7 @@ class PuppetfileTest < Minitest::Test
     with_temp_dir("puppetfile") do
       assert_raises(Armature::Environments::InvalidNameError) do
         parse_puppetfile(<<-PUPPETFILE)
-          mod "./foo", :git=>"foo"
+          mod "./foo", :git=>"#{repo_path("foo")}"
         PUPPETFILE
       end
     end
@@ -33,7 +33,9 @@ class PuppetfileTest < Minitest::Test
 
 private
   def parse_puppetfile(contents)
+    @cache = Armature::Cache.new("cache")
+    repo_init("foo")
     File.write("Puppetfile", contents)
-    Armature::Puppetfile.new().include("Puppetfile")
+    Armature::Puppetfile.new(@cache).include("Puppetfile")
   end
 end

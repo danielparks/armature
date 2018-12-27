@@ -19,78 +19,68 @@ module Armature
       end
     end
 
-    def flush_memory!
-      @logger.debug("Flushing in-memory caches for all repos")
-      @repos.each do |name, repo|
-        repo.freshen!
-      end
-    end
-
-    # Get GitRepo object for a local clone of a remote repo at a URL
+    # Get the path to a repo on disk.
     #
-    # This will clone the repo if it doesn't already exist.
-    def get_repo(url)
-      safe_url = fs_sanitize(url)
+    # If the repo doesn't exist locally, then it creates the path, locks it,
+    # and runs the passed block to create the repo.
+    def open_repo(type, url)
+      repo_id = _fs_repo_id(type, url)
+      repo_path = "#{@path}/repo/#{repo_id}"
 
-      repo_path = "#{@path}/repo/#{safe_url}"
-      if ! Dir.exist? repo_path
-        @logger.info("Cloning '#{url}' for the first time")
-        Armature::Util::lock repo_path, File::LOCK_EX, "clone" do
-          if Dir.exist? repo_path
-            @logger.info("Another process cloned '#{url}' while we were blocked")
-          else
-            # Mirror copies *all* refs, not just branches. Ignore output.
-            Armature::Run.command(
-              "git", "clone", "--quiet", "--mirror", url, repo_path)
-            @logger.debug("Done cloning '#{url}'")
-          end
-        end
+      if Dir.exist? repo_path
+        return repo_path
       end
 
-      get_repo_by_name(safe_url)
-    end
-
-    # Get a GitRepo object for an existing local repo by its santized URL
-    def get_repo_by_name(safe_url)
-      @repos[safe_url] ||= GitRepo.new("#{@path}/repo/#{safe_url}", safe_url)
-    end
-
-    # Check out a ref from a repo and return the path
-    def checkout(repo, ref, refresh=false, options={})
-      if refresh
-        # Don't check the cache; refresh it from source.
-        repo.freshen()
-        ref = repo.canonical_ref(ref)
-      else
-        # This will raise a Armature::GitRepo::RefError if the ref doesn't exist
-        begin
-          ref = repo.canonical_ref(ref)
-        rescue Armature::GitRepo::RefError
-          repo.freshen()
-          ref = repo.canonical_ref(ref)
+      @logger.debug("Creating repo for #{type} '#{url}'")
+      Armature::Util::lock(repo_path, File::LOCK_EX, "create") do
+        if Dir.exist? repo_path
+          @logger.debug("Another process created repo for #{type} '#{url}' while we were waiting")
+          return repo_path
         end
+
+        yield repo_path
       end
 
-      type = repo.ref_type(ref)
-      safe_ref = fs_sanitize(ref)
-      repo_path = "#{@path}/ref/#{type}/#{repo.name}"
+      return repo_path
+    end
+
+    def open_ref(ref)
+      safe_ref = fs_sanitize(ref.canonical_name)
+      repo_path = "#{@path}/ref/#{ref.type}/#{fs_repo_id(ref.repo)}"
       ref_path = "#{repo_path}/#{safe_ref}"
-
-      if ! refresh
-        # Check cache first
-        if Dir.exist? ref_path
-          return ref_path
-        end
-      end
 
       FileUtils.mkdir_p(repo_path)
 
-      identity_path = checkout_identity(repo, repo.ref_identity(ref))
+      identity_path = open_identity(ref.repo, ref.identity) do |object_path|
+        yield object_path
+      end
+
       if identity_path != ref_path
         atomic_symlink(identity_path, ref_path)
       end
 
       ref_path
+    end
+
+    def register_repo(repo)
+      @repos[fs_repo_id(repo)] = repo
+    end
+
+    # Get a GitRepo object for an existing local repo by its santized URL
+    def repo_by_id(repo_id)
+      @repos[repo_id] ||= GitRepo.new(self, "#{@path}/repo/#{repo_id}")
+    end
+
+    def get_repo(type, url)
+      @repos[_fs_repo_id(type, url)]
+    end
+
+    # This is used in the testing code
+    def flush_memory!
+      @logger.debug("Flushing in-memory caches for all repos")
+      @repos.each do |name, repo|
+        repo.flush_memory!
+      end
     end
 
     # Creates a symlink atomically
@@ -119,15 +109,15 @@ module Armature
       raise
     end
 
-    def update_branches()
+    def update_mutable_refs()
       Dir.glob("#{@path}/ref/mutable/*/*") do |path|
-        ref = fs_unsanitize(File.basename(path))
-        repo = get_repo_by_name(File.basename(File.dirname(path)))
-        @logger.info("Updating #{ref} ref from #{repo.url}")
+        repo = repo_by_id(File.basename(File.dirname(path)))
+        ref = repo.mutable_fs_ref(fs_unsanitize(File.basename(path)))
+        @logger.info("Updating #{ref} ref from #{repo}")
 
         begin
-          checkout(repo, ref, :refresh=>true)
-        rescue Armature::GitRepo::RefError
+          ref.check_out()
+        rescue Armature::RefError
           # The ref no longer exists, so we can't update it. Leave the old
           # checkout in place for safety; garbage collection will remove it if
           # it's no longer used.
@@ -183,20 +173,29 @@ module Armature
       "#{@path}/object/#{@process_prefix}.#{@sequence}#{name}"
     end
 
-    def fs_sanitize(ref)
+    def fs_repo_id(repo)
+      _fs_repo_id(repo.type, repo.url)
+    end
+
+    def _fs_repo_id(type, url)
+      fs_sanitize("#{type}:#{url}")
+    end
+
+    ### FIXME write tests for this
+    def fs_sanitize(str)
       # Escape | and replace / with |. Also escape a leading .
-      ref.sub(/\A\./, "\\.").gsub(/[\\|]/, '\\\0').gsub(/\//, '|')
+      str.sub(/\A\./, "\\.").gsub(/[\\|]/, '\\\0').gsub(%r{/}, '|')
     end
 
-    def fs_unsanitize(name)
-      name.gsub(/\|/, '/').gsub(/\\([\\|])/, '\0').sub(/^\\\./, '.')
+    ### FIXME write tests for this
+    def fs_unsanitize(str)
+      str.gsub(/\\([\\|])/, '\0').gsub(/\|/, '/').sub(/^\A\\\./, '.')
     end
 
-    # Assumes identity exists. Use checkout() if it might not.
-    def checkout_identity(repo, identity)
+    def open_identity(repo, identity)
       safe_identity = fs_sanitize(identity)
 
-      repo_path = "#{@path}/identity/#{repo.name}"
+      repo_path = "#{@path}/ref/identity/#{fs_repo_id(repo)}"
       identity_path = "#{repo_path}/#{safe_identity}"
       if Dir.exist? identity_path
         return identity_path
@@ -204,7 +203,7 @@ module Armature
 
       FileUtils.mkdir_p(repo_path)
 
-      Armature::Util::lock identity_path, File::LOCK_EX, "checkout" do
+      Armature::Util::lock(identity_path, File::LOCK_EX, "check out") do
         # Another process may have created the object before we got the lock
         if Dir.exist? identity_path
           return identity_path
@@ -214,10 +213,12 @@ module Armature
         FileUtils.mkdir_p object_path
 
         @logger.debug(
-          "Checking out '#{identity}' from '#{repo.url}' into '#{object_path}'")
-        repo.git "reset", "--hard", identity, :work_dir=>object_path
+          "Checking out '#{identity}' from '#{repo}' into '#{object_path}'")
+        yield object_path
         atomic_symlink(object_path, identity_path)
       end
+
+      @logger.debug("Finished checking out \"#{identity}\" from \"#{repo}\"")
 
       identity_path
     end
