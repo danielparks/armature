@@ -20,6 +20,9 @@ switch [:v,:verbose]
 desc 'Show DEBUG level output'
 switch [:d,:debug]
 
+desc 'Add timestamp for each line in log'
+switch [:"log-time"]
+
 if Process.uid == 0
   environments_default = '/etc/puppetlabs/code/environments'
   cache_default = '/srv/armature-cache'
@@ -115,7 +118,16 @@ command :update do |c|
 end
 
 pre do |global_options, command, options, arguments|
-  Logging.logger.root.add_appenders Logging.appenders.stdout
+  appender = Logging.appenders.stdout
+
+  if global_options[:"log-time"]
+    appender.layout = Logging.layouts.pattern.new(
+      :pattern =>  "%d %-5l [%c] %m\n",
+      :date_pattern =>  "%Y-%m-%d %H:%M:%S",
+    )
+  end
+
+  Logging.logger.root.add_appenders(appender)
 
   Logging.logger.root.level = :info if global_options[:verbose]
   Logging.logger.root.level = :debug if global_options[:debug]
