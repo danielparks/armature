@@ -38,7 +38,12 @@ module Armature
           return repo_path
         end
 
-        yield repo_path
+        temp_path = new_temp_path()
+        Dir.mkdir(temp_path)
+
+        yield temp_path
+
+        File.rename(temp_path, repo_path)
       end
 
       return repo_path
@@ -66,9 +71,15 @@ module Armature
       @repos[fs_repo_id(repo)] = repo
     end
 
-    # Get a GitRepo object for an existing local repo by its santized URL
+    # Takes a string like "git:https://github.com/a/b.git" and returns Repo::Git
+    def repo_klass(repo_id)
+      type = repo_id.split(":", 2).first
+      Repo.const_get(type.capitalize())
+    end
+
+    # Get a repo object for an existing local repo by its santized URL
     def repo_by_id(repo_id)
-      @repos[repo_id] ||= GitRepo.new(self, "#{@path}/repo/#{repo_id}")
+      @repos[repo_id] ||= repo_klass(repo_id).from_path(self, "#{@path}/repo/#{repo_id}")
     end
 
     def get_repo(type, url)

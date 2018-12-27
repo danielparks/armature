@@ -31,8 +31,7 @@ module Armature
         :git => nil,
       })
 
-      repo = GitRepo.mirror_of(@cache, options[:git])
-
+      repo = Repo::Git.from_url(@cache, options[:git])
       ref = nil
 
       if options[:commit]
