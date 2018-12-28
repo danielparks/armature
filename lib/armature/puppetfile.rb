@@ -27,7 +27,12 @@ module Armature
         raise "Module #{name} declared twice"
       end
 
-      if options.is_a?(String) || options == {} || options == nil
+      is_forge = options.is_a?(Symbol) \
+        || options.is_a?(String) \
+        || options == {} \
+        || options == nil
+
+      if is_forge
         _mod_forge(full_name, name, options)
       elsif options[:git]
         _mod_git(name, options)
@@ -36,9 +41,11 @@ module Armature
       end
     end
 
-    def _mod_forge(full_name, name, version="latest")
+    def _mod_forge(full_name, name, version=:latest)
       if version == nil || version == {}
         version = "latest"
+      else
+        version = version.to_s
       end
 
       repo = Repo::Forge.from_url(@cache, @forge_url, full_name)

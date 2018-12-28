@@ -88,7 +88,7 @@ class Armature::Repo::Forge < Armature::Repo
 
   # Get ref object
   def general_ref(version)
-    if version.nil? || version == "latest"
+    if version.nil? || version.to_s == "latest"
       latest_ref()
     else
       version_ref(version)
