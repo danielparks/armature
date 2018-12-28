@@ -1,4 +1,6 @@
-require 'json'
+require "json"
+require "net/http"
+require "uri"
 
 module Armature::Util
   extend self
