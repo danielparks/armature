@@ -55,7 +55,7 @@ module Armature
       if @fix_environment_names && ! self.class.valid_environment_name?(name)
         old = name
         name = old.gsub(/[^A-Za-z0-9_]/, "_")
-        @logger.info("Changing invalid environment name \"#{old}\" to \"#{name}\"")
+        @logger.warn("Changing invalid environment name \"#{old}\" to \"#{name}\"")
       end
 
       self.class.assert_valid_environment_name(name)

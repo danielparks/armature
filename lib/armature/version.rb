@@ -1,4 +1,4 @@
 module Armature
-  VERSION = "0.4.0"
+  VERSION = "0.4.1"
   HOMEPAGE = "https://github.com/danielparks/armature"
 end
