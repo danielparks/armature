@@ -56,6 +56,7 @@ module Armature
 
       FileUtils.mkdir_p(repo_path)
 
+      @logger.debug("Checking for #{ref} in #{ref.repo}")
       identity_path = open_identity(ref.repo, ref.identity) do |object_path|
         yield object_path
       end
@@ -103,14 +104,14 @@ module Armature
     def atomic_symlink(target_path, new_path)
       new_path.chomp!("/")
 
-      @logger.debug("#{new_path} -> #{target_path}")
-
       begin
         if File.readlink(new_path) == target_path
           return
         end
       rescue Errno::ENOENT
       end
+
+      @logger.debug("Updating symlink #{new_path} -> #{target_path}")
 
       temp_path = new_temp_path()
       File.symlink(target_path, temp_path)
@@ -166,6 +167,18 @@ module Armature
       end
     ensure
       @lock_file = nil
+    end
+
+    # Open a temp directory, chdir into it, yield, then delete the directory
+    def open_temp
+      path = new_temp_path()
+
+      Dir.mkdir(path)
+      Dir.chdir(path) do
+        yield
+      end
+
+      FileUtils.remove_entry(path)
     end
 
   private

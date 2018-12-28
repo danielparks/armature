@@ -32,7 +32,6 @@ class Armature::Repo::Git < Armature::Repo
 
   # Check out a ref from a repo and return the path
   def check_out(ref)
-    @logger.debug("Checking out #{ref} from #{self}")
     @cache.open_ref(ref) do |object_path|
       git "reset", "--hard", ref.identity, :work_dir=>object_path
     end
