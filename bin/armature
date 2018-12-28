@@ -50,7 +50,7 @@ command "deploy-ref" do |c|
     # This should fail as early as possible (e.g. if the path isn't correct)
     environments = Armature::Environments.new(@environments_path, @cache)
 
-    repo = Armature::GitRepo.mirror_of(@cache, arguments.shift)
+    repo = Armature::Repo::Git.from_url(@cache, arguments.shift)
     ref = arguments.shift
     name = arguments.shift
 
@@ -75,7 +75,7 @@ command "deploy-branches" do |c|
     # This should fail as early as possible (e.g. if the path isn't correct)
     environments = Armature::Environments.new(@environments_path, @cache)
 
-    repo = Armature::GitRepo.mirror_of(@cache, arguments.shift)
+    repo = Armature::Repo::Git.from_url(@cache, arguments.shift)
     all_branches = repo.get_branches()
     branches = Set.new()
 

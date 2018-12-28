@@ -6,12 +6,17 @@ module Armature
       @cache = cache
       @results = {}
       @logger = Logging.logger[self]
+      @forge_url = "https://forge.puppet.com"
     end
 
     ### FIXME this will have access to @cache and @results
     def include(path)
       instance_eval(IO.read(path), path)
       @results
+    end
+
+    def forge(url)
+      @forge_url = url.chomp("/")
     end
 
     def mod(full_name, options={})
@@ -22,6 +27,27 @@ module Armature
         raise "Module #{name} declared twice"
       end
 
+      if options.is_a?(String) || options == {} || options == nil
+        _mod_forge(full_name, name, options)
+      elsif options[:git]
+        _mod_git(name, options)
+      else
+        raise "Invalid mod call: #{full_name} #{options}"
+      end
+    end
+
+    def _mod_forge(full_name, name, version="latest")
+      if version == nil || version == {}
+        version = "latest"
+      end
+
+      repo = Repo::Forge.from_url(@cache, @forge_url, full_name)
+      ref = repo.general_ref(version)
+      @logger.debug("mod #{name}: #{ref}")
+      @results[name] = { :name => name, :ref => ref }
+    end
+
+    def _mod_git(name, options={})
       options = Armature::Util.process_options(options, {
         :commit => nil,
         :tag => nil,
@@ -31,8 +57,7 @@ module Armature
         :git => nil,
       })
 
-      repo = GitRepo.mirror_of(@cache, options[:git])
-
+      repo = Repo::Git.from_url(@cache, options[:git])
       ref = nil
 
       if options[:commit]
@@ -69,10 +94,6 @@ module Armature
 
       @logger.debug("mod #{name}: #{ref}")
       @results[name] = { :name => name, :ref => ref }
-    end
-
-    def forge(*arguments)
-      ### error?
     end
   end
 end

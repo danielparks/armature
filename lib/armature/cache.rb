@@ -38,7 +38,12 @@ module Armature
           return repo_path
         end
 
-        yield repo_path
+        temp_path = new_temp_path()
+        Dir.mkdir(temp_path)
+
+        yield temp_path
+
+        File.rename(temp_path, repo_path)
       end
 
       return repo_path
@@ -51,6 +56,7 @@ module Armature
 
       FileUtils.mkdir_p(repo_path)
 
+      @logger.debug("Checking for #{ref} in #{ref.repo}")
       identity_path = open_identity(ref.repo, ref.identity) do |object_path|
         yield object_path
       end
@@ -66,9 +72,15 @@ module Armature
       @repos[fs_repo_id(repo)] = repo
     end
 
-    # Get a GitRepo object for an existing local repo by its santized URL
+    # Takes a string like "git:https://github.com/a/b.git" and returns Repo::Git
+    def repo_klass(repo_id)
+      type = repo_id.split(":", 2).first
+      Repo.const_get(type.capitalize())
+    end
+
+    # Get a repo object for an existing local repo by its santized URL
     def repo_by_id(repo_id)
-      @repos[repo_id] ||= GitRepo.new(self, "#{@path}/repo/#{repo_id}")
+      @repos[repo_id] ||= repo_klass(repo_id).from_path(self, "#{@path}/repo/#{repo_id}")
     end
 
     def get_repo(type, url)
@@ -92,14 +104,14 @@ module Armature
     def atomic_symlink(target_path, new_path)
       new_path.chomp!("/")
 
-      @logger.debug("#{new_path} -> #{target_path}")
-
       begin
         if File.readlink(new_path) == target_path
           return
         end
       rescue Errno::ENOENT
       end
+
+      @logger.debug("Updating symlink #{new_path} -> #{target_path}")
 
       temp_path = new_temp_path()
       File.symlink(target_path, temp_path)
@@ -155,6 +167,18 @@ module Armature
       end
     ensure
       @lock_file = nil
+    end
+
+    # Open a temp directory, chdir into it, yield, then delete the directory
+    def open_temp
+      path = new_temp_path()
+
+      Dir.mkdir(path)
+      Dir.chdir(path) do
+        yield
+      end
+
+      FileUtils.remove_entry(path)
     end
 
   private

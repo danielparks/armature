@@ -46,7 +46,6 @@ module Armature::Util
     # operations to block.
     File.open(path, File::RDWR|File::CREAT, 0600) do |lock|
       if not lock.flock(mode | File::LOCK_NB)
-        logger = Logging.logger[self]
         logger.info("Waiting for lock on #{path}")
 
         start_time = Time.now
@@ -70,5 +69,53 @@ module Armature::Util
 
       yield lock
     end
+  end
+
+  def http_get_json(url, request_headers={})
+    accept = { "Accept" => "application/json" }
+    body = http_get(url, request_headers.merge(accept))
+    JSON.parse(body)
+  end
+
+  def http_get_request(url, request_headers={})
+    uri = URI.parse(url)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = (uri.scheme == "https")
+
+    request = Net::HTTP::Get.new(uri)
+    request["User-Agent"] = "armature #{Armature::VERSION} #{Armature::HOMEPAGE}"
+    request_headers.each do |key, value|
+      request[key] = value
+    end
+
+    http.request(request)
+  end
+
+  def http_get(url, request_headers={})
+    start_time = Time.now
+
+    current_url = url
+    body = nil
+
+    while body == nil do
+      response = http_get_request(current_url, request_headers)
+      if response.kind_of? Net::HTTPRedirection
+        logger.debug("HTTP redirection: #{current_url} to #{response["Location"].inspect}")
+        current_url = response["Location"]
+        next
+      end
+
+      response.value() # Raise error if we don't get 2xx response
+      body = response.body()
+    end
+
+    seconds = Time.now - start_time
+    logger.debug("Downloaded #{body.length()} bytes from #{current_url} in #{seconds}")
+
+    body
+  end
+
+  def logger
+    Logging.logger[self]
   end
 end

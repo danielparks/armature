@@ -6,7 +6,7 @@ class DeployTest < Minitest::Test
 
   def test_deploy_just_master_branch
     with_context do
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       branches = Set.new(repo.get_branches())
 
       assert_equal(Set.new(['master']), branches,
@@ -28,7 +28,7 @@ class DeployTest < Minitest::Test
   ### FIXME: should this generate an error?
   def test_deploy_nonexistant_branch
     with_context do
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       branches = Set.new(repo.get_branches())
 
       assert_equal(Set.new(['master']), branches,
@@ -43,7 +43,7 @@ class DeployTest < Minitest::Test
 
   def test_deploy_all_branches
     with_context do
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       branches = Set.new(repo.get_branches())
 
       Dir.mkdir("foo")
@@ -67,7 +67,7 @@ class DeployTest < Minitest::Test
 
   def test_deploy_one_module
     with_context do
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
       assert_equal(
@@ -79,7 +79,7 @@ class DeployTest < Minitest::Test
 
   def test_adding_module_and_redeploying
     with_context do
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
       repo_init("module-2")
@@ -109,7 +109,7 @@ class DeployTest < Minitest::Test
 
   def test_removing_module_and_redeploying
     with_context do
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
       repo_commit("control", "Remove module-1") do
@@ -137,7 +137,7 @@ class DeployTest < Minitest::Test
         PUPPETFILE
       end
 
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       assert_raises(Armature::RefError) do
         @environments.check_out_ref(repo, "master")
       end
@@ -153,7 +153,7 @@ class DeployTest < Minitest::Test
 
   def test_redeploying_module_with_bad_ref
     with_context do
-      repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+      repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
       repo_commit("control", "Set module-1 to bad ref") do
@@ -249,7 +249,7 @@ class DeployTest < Minitest::Test
         add_module_class("interesting", "two_b")
 
         @cache.flush_memory!
-        @environments.check_out_ref(Armature::GitRepo::mirror_of(@cache, repo_path("control")), "master")
+        @environments.check_out_ref(Armature::Repo::Git::from_url(@cache, repo_path("control")), "master")
 
         assert_module_manifests("interesting",
           ["one.pp", "two.pp", "two_a.pp", "two_b.pp"],
@@ -283,7 +283,7 @@ private
       mod "interesting", :git=>"#{repo_path('interesting')}"
     MODULES
 
-    control_repo = Armature::GitRepo::mirror_of(@cache, repo_path("control"))
+    control_repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
     @environments.check_out_ref(control_repo, "master")
 
     assert_module_manifests("interesting", ["one.pp", "two.pp", "three.pp"],

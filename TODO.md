@@ -1,13 +1,5 @@
 # Future development
 
-### Update module branches when updating an environment
-
-Rather than waiting for a periodic `update-branches` job to run, update module
-branches when their environment is deployed.
-
-This will require some caching so that work is not duplicated when updating all
-environments.
-
 ### Webhook endpoints
 
 I'm unsure if I want this. Webhooks are definitely useful, but I can get that
