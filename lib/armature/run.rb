@@ -38,19 +38,33 @@ module Armature::Run
   end
 
   def command(environment={}, *cmd)
-    logger = Logging.logger[self]
+    pipe_command("", environment, *cmd)
+  end
 
-    logger.debug("Run: " + command_to_string(cmd))
+  def pipe_command(input, environment={}, *cmd)
+    if input == ""
+      logger.debug("Run: " + command_to_string(cmd))
+    else
+      logger.debug("Run with input: " + command_to_string(cmd))
+    end
+
     start_time = Time.now
-    out, status = Open3.capture2e(environment, *cmd)
+    output, status = nil, nil
+    Open3.popen2e(environment, *cmd) do |pipe_in, pipe_out, promise|
+      pipe_in.write(input)
+      pipe_in.close()
+      output = pipe_out.read()
+      pipe_out.close()
+      status = promise.value
+    end
     seconds = Time.now - start_time
     logger.debug("Finished " + command_to_string([cmd.first]) + " in #{seconds}: #{status}")
 
     if ! status.success?
-      raise CommandFailureError.new(status, cmd, out)
+      raise CommandFailureError.new(status, cmd, output)
     end
 
-    out
+    output
   end
 
   def clean_git(*cmd)
@@ -62,5 +76,9 @@ module Armature::Run
     }
 
     command(environment, "git", *cmd)
+  end
+
+  def logger
+    Logging.logger[self]
   end
 end
