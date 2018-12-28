@@ -1,7 +1,3 @@
-require "json"
-require "net/http"
-require "uri"
-
 # Get a module from the Forge
 class Armature::Repo::Forge < Armature::Repo
   CANONICAL_FORGE_URL = "https://forge.puppet.com"
