@@ -48,6 +48,14 @@ module Armature::Run
       logger.debug("Run with input: " + command_to_string(cmd))
     end
 
+    # The default doesn't really do anything; it's just there for a little
+    # clarity. If we're passed an environment, it will be a Hash. Otherwise,
+    # `environment` captured the first value in cmd.
+    if ! environment.kind_of?(Hash)
+      cmd.unshift(environment)
+      environment = {}
+    end
+
     start_time = Time.now
     output, status = nil, nil
     Open3.popen2e(environment, *cmd) do |pipe_in, pipe_out, promise|
