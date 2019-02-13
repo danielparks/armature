@@ -18,7 +18,6 @@ spec = Gem::Specification.new do |s|
   EOF
   s.files = `git ls-files`.split("\n") - [".gitignore"]
   s.require_paths << 'lib'
-  s.has_rdoc = false
   s.bindir = 'bin'
   s.executables << 'armature'
   s.required_ruby_version = '>= 2.0.0'
