@@ -16,7 +16,7 @@ spec = Gem::Specification.new do |s|
     It is designed as a much faster replacement for r10k, though it does not
     have all of r10k's features.
   EOF
-  s.files = `git ls-files`.split("\n")
+  s.files = `git ls-files`.split("\n") - [".gitignore"]
   s.require_paths << 'lib'
   s.has_rdoc = false
   s.bindir = 'bin'
