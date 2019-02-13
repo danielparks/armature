@@ -110,6 +110,27 @@ command "deploy-branches" do |c|
   end
 end
 
+desc 'Deploy ./Puppetfile into ./modules'
+command "deploy-Puppetfile" do |c|
+  c.action do |global_options, options, arguments|
+    @cache.lock File::LOCK_SH do
+      puppetfile_path = "./Puppetfile"
+      puppetfile = Armature::Puppetfile.new(@cache)
+      if File.exist?(puppetfile_path)
+        @logger.debug "Found #{puppetfile_path}"
+        module_refs = puppetfile.include(puppetfile_path)
+        @logger.debug "Loaded #{puppetfile_path} with" \
+          " #{module_refs.length} modules"
+      else
+        abort("No Puppetfile found")
+        module_refs = {}
+      end
+
+      puppetfile.update_modules(".", module_refs)
+    end
+  end
+end
+
 desc 'Remove unused objects from cache'
 command :gc do |c|
   c.action { @cache.garbage_collect(@environments_path) }

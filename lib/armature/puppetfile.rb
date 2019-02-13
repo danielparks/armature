@@ -7,6 +7,7 @@ module Armature
       @results = {}
       @logger = Logging.logger[self]
       @forge_url = "https://forge.puppet.com"
+      @moduledir = 'modules'
     end
 
     ### FIXME this will have access to @cache and @results
@@ -15,8 +16,36 @@ module Armature
       @results
     end
 
+    # Apply the results of the Puppetfile to a ref (e.g. an environment)
+    #
+    ### FIXME This could update modules in an existing check out.
+    def update_modules(target_path, module_refs)
+      modules_path = "#{target_path}/#{@moduledir}"
+      if ! Dir.exist? modules_path
+        Dir.mkdir(modules_path)
+      end
+
+      module_refs.each do |name, info|
+        Armature::Environments.assert_valid_module_name(name)
+
+        ref_path = info[:ref].check_out()
+        @cache.atomic_symlink(ref_path, "#{modules_path}/#{name}")
+      end
+
+      Dir.foreach(modules_path) do |name|
+        if ! module_refs.has_key? name and name != "." and name != ".."
+          # All paths should be symlinks.
+          File.delete("#{modules_path}/#{name}")
+        end
+      end
+    end
+
     def forge(url)
       @forge_url = url.chomp("/")
+    end
+
+    def moduledir(path)
+      @moduledir = path
     end
 
     def mod(full_name, options={})

@@ -83,9 +83,10 @@ module Armature
         end
 
         puppetfile_path = "#{ref_path}/Puppetfile"
+        puppetfile = Armature::Puppetfile.new(@cache)
         if File.exist?(puppetfile_path)
           @logger.debug "Found Puppetfile in environment '#{name}'"
-          module_refs = Armature::Puppetfile.new(@cache).include(puppetfile_path)
+          module_refs = puppetfile.include(puppetfile_path)
           @logger.debug "Loaded Puppetfile in environment '#{name}' with" \
             " #{module_refs.length} modules"
         else
@@ -93,38 +94,12 @@ module Armature
           module_refs = {}
         end
 
-        update_modules(ref_path, module_refs)
+        puppetfile.update_modules(ref_path, module_refs)
 
         # Make the change live
         @cache.atomic_symlink(ref_path, "#{@path}/#{name}")
         @logger.debug "Done deploying ref '#{ref_str}' from '#{repo}' as" \
           " environment '#{name}'"
-      end
-    end
-
-  private
-
-    # Apply the results of the Puppetfile to a ref (e.g. an environment)
-    #
-    ### FIXME This could update modules in an existing check out.
-    def update_modules(target_path, module_refs)
-      modules_path = "#{target_path}/modules"
-      if ! Dir.exist? modules_path
-        Dir.mkdir(modules_path)
-      end
-
-      module_refs.each do |name, info|
-        self.class.assert_valid_module_name(name)
-
-        ref_path = info[:ref].check_out()
-        @cache.atomic_symlink(ref_path, "#{modules_path}/#{name}")
-      end
-
-      Dir.foreach(modules_path) do |name|
-        if ! module_refs.has_key? name and name != "." and name != ".."
-          # All paths should be symlinks.
-          File.delete("#{modules_path}/#{name}")
-        end
       end
     end
   end
