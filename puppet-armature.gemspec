@@ -25,5 +25,5 @@ spec = Gem::Specification.new do |s|
   s.add_runtime_dependency('gli','2.14.0')
   s.add_runtime_dependency('logging','~> 2')
   s.add_development_dependency('minitest','~> 5.9')
-  s.add_development_dependency('rake')
+  s.add_development_dependency('rake','<999')
 end
