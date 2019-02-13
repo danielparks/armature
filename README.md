@@ -38,6 +38,10 @@ options, or `armature help <command>` to learn about a specific command.
 
 Deploys branches from a git repository as environments.
 
+### `armature deploy-puppetfile`
+
+Deploys the Puppetfile in the current directory into `./modules`.
+
 ### `armature update`
 
 Updates all branches in the cache. This will update all environments to their
