@@ -82,19 +82,9 @@ module Armature
           return
         end
 
-        puppetfile_path = "#{ref_path}/Puppetfile"
         puppetfile = Armature::Puppetfile.new(@cache)
-        if File.exist?(puppetfile_path)
-          @logger.debug "Found Puppetfile in environment '#{name}'"
-          module_refs = puppetfile.include(puppetfile_path)
-          @logger.debug "Loaded Puppetfile in environment '#{name}' with" \
-            " #{module_refs.length} modules"
-        else
-          @logger.debug "No Puppetfile in environment '#{name}'"
-          module_refs = {}
-        end
-
-        puppetfile.update_modules(ref_path, module_refs)
+        puppetfile.load_control_directory(ref_path)
+        puppetfile.update_modules(ref_path)
 
         # Make the change live
         @cache.atomic_symlink(ref_path, "#{@path}/#{name}")

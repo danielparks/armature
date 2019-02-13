@@ -10,6 +10,20 @@ module Armature
       @moduledir = 'modules'
     end
 
+    def load_control_directory(control_directory)
+			puppetfile_path = "#{control_directory}/Puppetfile"
+			if File.exist?(puppetfile_path)
+        @logger.debug "Found #{puppetfile_path}"
+        include(puppetfile_path)
+        @logger.debug "Loaded #{puppetfile_path}: #{@results.length} modules"
+        return true
+			else
+				@logger.warn "#{puppetfile_path} does not exist"
+				@results = {}
+				return false
+			end
+		end
+
     ### FIXME this will have access to @cache and @results
     def include(path)
       instance_eval(IO.read(path), path)
@@ -19,7 +33,7 @@ module Armature
     # Apply the results of the Puppetfile to a ref (e.g. an environment)
     #
     ### FIXME This could update modules in an existing check out.
-    def update_modules(target_path, module_refs)
+    def update_modules(target_path, module_refs=@results)
       modules_path = "#{target_path}/#{@moduledir}"
       if ! Dir.exist? modules_path
         Dir.mkdir(modules_path)

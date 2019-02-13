@@ -120,20 +120,15 @@ long_desc 'By default this deploys the Puppetfile in the current directory into
 arg 'SOURCE-DIRECTORY', :optional
 command "deploy-puppetfile" do |c|
   c.action do |global_options, options, arguments|
-    source_directory = arguments[0] || "."
     @cache.lock File::LOCK_SH do
-      puppetfile_path = "#{source_directory}/Puppetfile"
       puppetfile = Armature::Puppetfile.new(@cache)
-      if File.exist?(puppetfile_path)
-        @logger.debug "Found #{puppetfile_path}"
-        module_refs = puppetfile.include(puppetfile_path)
-        @logger.debug "Loaded #{puppetfile_path}: #{module_refs.length} modules"
-      else
-        abort("No Puppetfile found")
-        module_refs = {}
+
+      source_directory = arguments[0] || "."
+      if ! puppetfile.load_control_directory(source_directory)
+        abort() # A warning is displayed in load_control_directory()
       end
 
-      puppetfile.update_modules(source_directory, module_refs)
+      puppetfile.update_modules(source_directory)
     end
   end
 end
