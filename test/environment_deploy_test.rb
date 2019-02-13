@@ -1,11 +1,11 @@
 require 'minitest/autorun'
 require 'helpers'
 
-class DeployTest < Minitest::Test
+class EnvironmentDeployTest < Minitest::Test
   include ArmatureTestHelpers
 
   def test_deploy_just_master_branch
-    with_context do
+    with_environment_context do
       repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       branches = Set.new(repo.get_branches())
 
@@ -27,7 +27,7 @@ class DeployTest < Minitest::Test
 
   ### FIXME: should this generate an error?
   def test_deploy_nonexistant_branch
-    with_context do
+    with_environment_context do
       repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       branches = Set.new(repo.get_branches())
 
@@ -42,7 +42,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_deploy_all_branches
-    with_context do
+    with_environment_context do
       repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       branches = Set.new(repo.get_branches())
 
@@ -66,7 +66,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_deploy_one_module
-    with_context do
+    with_environment_context do
       repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
@@ -78,7 +78,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_adding_module_and_redeploying
-    with_context do
+    with_environment_context do
       repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
@@ -108,7 +108,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_removing_module_and_redeploying
-    with_context do
+    with_environment_context do
       repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
@@ -128,7 +128,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_module_with_bad_ref
-    with_context do
+    with_environment_context do
       repo_commit("control", "Set module-1 to bad ref") do
         File.write("Puppetfile", <<-PUPPETFILE)
           forge "https://forge.puppet.com"
@@ -152,7 +152,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_redeploying_module_with_bad_ref
-    with_context do
+    with_environment_context do
       repo = Armature::Repo::Git::from_url(@cache, repo_path("control"))
       @environments.check_out_ref(repo, "master")
 
@@ -169,18 +169,14 @@ class DeployTest < Minitest::Test
         @environments.check_out_ref(repo, "master")
       end
 
-      ### FIXME state of repo after an error is undefined
       ### What happens if other modules already exist?
-      skip("state of repo after an error is undefined")
-      assert_equal(
-        [".", "..", "module1"].sort(),
-        Dir.entries(@environments.path + "/master/modules").sort(),
-        "Modules installed after test incorrect")
+      assert(! File.directory?(@environments.path + "/master/modules"),
+        "Incorrectly created modules directory")
     end
   end
 
   def test_redeploying_module_with_ref_tag
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("ref", "tag_one") do
         assert_module_manifests("interesting", ["one.pp"],
@@ -190,7 +186,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_redeploying_module_with_ref_branch
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("ref", "branch_two") do
         assert_module_manifests("interesting", ["one.pp", "two.pp", "two_a.pp"],
@@ -200,7 +196,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_redeploying_module_with_ref_commit
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       sha = repo_git("interesting", "rev-parse", "branch_two^").chomp
       redeploy_module_with_ref_of_type("ref", sha) do
@@ -211,7 +207,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_redeploying_module_with_tag
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("tag", "tag_one") do
         assert_module_manifests("interesting", ["one.pp"],
@@ -221,7 +217,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_redeploying_module_with_branch
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("branch", "branch_two") do
         assert_module_manifests("interesting", ["one.pp", "two.pp", "two_a.pp"],
@@ -231,7 +227,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_redeploying_module_with_commit
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       sha = repo_git("interesting", "rev-parse", "branch_two^").chomp
       redeploy_module_with_ref_of_type("commit", sha) do
@@ -242,7 +238,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_redeploying_module_with_updated_branch
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("ref", "branch_two") do
         repo_git("interesting", "checkout", "branch_two")
@@ -259,7 +255,7 @@ class DeployTest < Minitest::Test
   end
 
   def test_updating_branches_on_module_with_updated_branch
-    with_context do
+    with_environment_context do
       set_up_interesting_module("interesting")
       redeploy_module_with_ref_of_type("ref", "branch_two") do
         repo_git("interesting", "checkout", "branch_two")

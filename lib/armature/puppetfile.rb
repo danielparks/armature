@@ -11,18 +11,18 @@ module Armature
     end
 
     def load_control_directory(control_directory)
-			puppetfile_path = "#{control_directory}/Puppetfile"
-			if File.exist?(puppetfile_path)
+      puppetfile_path = "#{control_directory}/Puppetfile"
+      if File.exist?(puppetfile_path)
         @logger.debug "Found #{puppetfile_path}"
         include(puppetfile_path)
         @logger.debug "Loaded #{puppetfile_path}: #{@results.length} modules"
         return true
-			else
-				@logger.warn "#{puppetfile_path} does not exist"
-				@results = {}
-				return false
-			end
-		end
+      else
+        @logger.warn "#{puppetfile_path} does not exist"
+        @results = {}
+        return false
+      end
+    end
 
     ### FIXME this will have access to @cache and @results
     def include(path)

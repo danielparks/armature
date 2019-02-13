@@ -84,10 +84,20 @@ module ArmatureTestHelpers
     with_temp_dir("context") do
       @cache = Armature::Cache.new("cache")
 
+      repo_init("module-1")
+
+      yield
+    end
+  ensure
+    # Ensure that code trying to use these after this point fails in a
+    # predictable way.
+    @cache = nil
+  end
+
+  def with_environment_context
+    with_context do
       Dir.mkdir("environments")
       @environments = Armature::Environments.new("environments", @cache)
-
-      repo_init("module-1")
 
       repo_init("control") do
         File.write("Puppetfile", <<-PUPPETFILE)
@@ -100,9 +110,6 @@ module ArmatureTestHelpers
       yield
     end
   ensure
-    # Ensure that code trying to use these after this point fails in a
-    # predictable way.
-    @cache = nil
     @environments = nil
   end
 
