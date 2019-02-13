@@ -2,11 +2,6 @@
 
 The Puppetfile is just ruby. There are a few important declarations:
 
-### `forge 'https://forge.puppet.com'`
-
-This specifies what “forge” to use. You don't need to specify this unless you
-have a caching proxy, or your own Forge-like web site.
-
 ### `mod 'owner-name', 'version'`
 
 Install a module from the Forge. This will use whatever “forge” was last set
@@ -38,6 +33,16 @@ one, it will default to the master branch.
 
 You can also use `:ref` to specify any of the above, or another type of git
 ref. Using this will cause armature to check for updates on every deploy.
+
+### `forge 'https://forge.puppet.com'`
+
+This specifies what “forge” to use. You don't need to specify this unless you
+have a caching proxy, or your own Forge-like web site.
+
+### `moduledir 'modules'`
+
+What directory should the modules go in? You should almost never need to
+specify this.
 
 ## Example
 
