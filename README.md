@@ -27,7 +27,7 @@ _This is an alpha release. The interface is likely to change significantly._
   For example, you might have a dev environment that contains Puppet code in
   development, and a prod environment that runs on the production nodes. See
   the [official Puppet documentation.
-  ](https://docs.puppet.com/puppet/latest/reference/environments.html)
+  ](https://puppet.com/docs/puppet/latest/environments_about.html)
 
 ## Usage
 

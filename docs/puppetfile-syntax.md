@@ -63,5 +63,6 @@ mod 'aws',
 
 Armature does not support the full syntax of either
 [r10k](https://github.com/puppetlabs/r10k/blob/master/doc/puppetfile.mkd) or
-[librarian-puppet](http://librarian-puppet.com). It will likely support more of
-r10k's syntax at some point.
+[librarian-puppet](http://librarian-puppet.com). Submit an
+[issue](https://github.com/danielparks/armature/issues) if you have a specific
+feature you need.
