@@ -9,11 +9,13 @@ $ armature deploy-branches my-puppet-code.git '*'
 Armature sets up Puppet environments for each branch in your control repo and
 installs modules as specified by the Puppetfile for each environment.
 
-Armature is designed to replace [r10k](https://github.com/puppetlabs/r10k) for
-certain, very specific use cases. It does not have nearly as many features, but
-it is _much_ faster.
+Armature is designed to replace [r10k][] for certain, very specific use cases.
+It does not have nearly as many features, but it is _much_ faster.
 
-_This is an alpha release. The interface is likely to change significantly._
+## Development status
+
+This is mostly abandoned and I am unlikely to do much more work on this. For
+most people [r10k][] is fast enough.
 
 ## Glossary
 
@@ -52,3 +54,5 @@ ref (this will not update tags).
 
 Removes unused objects from the cache. For example, old commits in the control
 repo that are no longer used as environments.
+
+[r10k]: https://github.com/puppetlabs/r10k
